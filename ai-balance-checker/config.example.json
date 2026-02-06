@@ -36,9 +36,9 @@
       "currency": "CNY"
     },
     "zhipu": {
-      "name": "智谱AI",
+      "name": "智谱AI (ZAI)",
       "apiKey": "",
-      "balanceEndpoint": "",
+      "balanceEndpoint": "https://open.bigmodel.cn/api/paas/v4/usage",
       "unit": "tokens",
       "currency": "CNY"
     }
