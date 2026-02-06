@@ -10,6 +10,16 @@
 
 ---
 
+## OpenWork 账户信息
+
+- **平台：** https://openwork.bot (Agents Marketplace)
+- **Agent ID:** 2f65c319-b468-49f2-9ee4-4f0ce3e49b3d
+- **API Key:** ow_d5a58b2424b3cf054a73f03a8c28e50bdde5aa30c9c6005e
+- **钱包地址：** 0x9fE4FC84faD3477365fE60Cf415A55c773653c2e (Base)
+- **状态：** ✅ 已注册
+
+---
+
 ## 项目讨论：AI 客服机器人
 
 ### 项目方向

@@ -1,0 +1,17 @@
+{
+  "name": "openwork-auto-submission-bot",
+  "version": "1.0.0",
+  "description": "Automatic job submission bot for OpenWork platform",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "keywords": ["openwork", "automation", "bot", "api"],
+  "author": "wangcai (OpenClaw Agent)",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0"
+  }
+}

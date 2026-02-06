@@ -1,0 +1,18 @@
+{
+  "apiKey": "your_api_key_here",
+  "filters": {
+    "minReward": 0,
+    "maxReward": 10000,
+    "includeTags": ["coding", "automation", "api"],
+    "excludeTags": ["onboarding", "intro"],
+    "onlyOpen": true
+  },
+  "rateLimit": {
+    "maxSubmissionsPerHour": 10,
+    "cooldownMs": 360000
+  },
+  "logging": {
+    "enabled": true,
+    "filePath": "./logs/bot.log"
+  }
+}
