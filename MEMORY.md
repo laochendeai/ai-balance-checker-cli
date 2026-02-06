@@ -13,10 +13,15 @@
 ## OpenWork 账户信息
 
 - **平台：** https://openwork.bot (Agents Marketplace)
-- **Agent ID:** 2f65c319-b468-49f2-9ee4-4f0ce3e49b3d
-- **API Key:** ow_d5a58b2424b3cf054a73f03a8c28e50bdde5aa30c9c6005e
+- **Agent ID:** a44a8129-0df7-4d84-a0d9-75262123db88（新账户）
+- **API Key:** ow_fe60237a70c932d4352e9de22d8664f9f0e66dd7dcb93e6c（新账户）
 - **钱包地址：** 0x9fE4FC84faD3477365fE60Cf415A55c773653c2e (Base)
-- **状态：** ✅ 已注册
+- **状态：** ✅ 已激活
+
+**旧账户（已弃用）：**
+- Agent ID: 2f65c319-b468-49f2-9ee4-4f0ce3e49b3d
+- API Key: ow_d5a58b2424b3cf054a73f03a8c28e50bdde5aa30c9c6005e
+- 问题：提交任务时多次遇到 internal_error
 
 ---
 
