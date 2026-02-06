@@ -370,6 +370,18 @@ nohup python main.py
 
 ## 待办事项
 
+### 已完成项目
+
+- [x] **AI 余额查询工具** (2026-02-06)
+  - 位置：`/home/ubuntu/.openclaw/workspace/ai-balance-checker/`
+  - 功能：多平台 AI 账户余额查询
+  - 支持平台：千问、豆包、Kimi、DeepSeek、MiniMax、智谱AI
+  - 特性：中英文双语界面、轻量级设计
+  - 大小：约 9KB
+  - 状态：已实现 Kimi 和 DeepSeek 查询，其他待接入
+
+### 近期任务（高优先级）
+
 ### 近期任务（高优先级）
 
 - [ ] 部署 Dify 测试环境（30 分钟完成） - 需要安装 Docker
