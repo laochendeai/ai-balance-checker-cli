@@ -1,0 +1,47 @@
+{
+  "platforms": {
+    "qwen": {
+      "name": "通义千问",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "doubao": {
+      "name": "豆包",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "kimi": {
+      "name": "Moonshot AI (Kimi)",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "zhipu": {
+      "name": "智谱AI",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    }
+  },
+  "language": "zh"
+}
