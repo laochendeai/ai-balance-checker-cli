@@ -43,18 +43,11 @@
       "apiKey": "",
       "auth": { "type": "bearer" },
       "metrics": {
-        "plan": { "endpoint": "", "method": "GET", "fields": [{ "key": "plan_name", "path": "" }] },
-        "usage": {
-          "endpoint": "",
+        "balance": {
+          "endpoint": "https://api.moonshot.cn/v1/users/me/balance",
           "method": "GET",
-          "fields": [
-            { "key": "used_tokens", "path": "", "unit": "tokens" },
-            { "key": "limit_tokens", "path": "", "unit": "tokens" },
-            { "key": "remain_tokens", "path": "", "unit": "tokens" },
-            { "key": "period", "path": "" }
-          ]
-        },
-        "balance": { "endpoint": "https://api.moonshot.cn/v1/user/info", "method": "GET", "fields": [{ "key": "balance", "path": "" }] }
+          "fields": [{ "key": "balance", "path": "data.available_balance", "currency": "CNY" }]
+        }
       }
     },
     "deepseek": {
@@ -62,23 +55,6 @@
       "apiKey": "",
       "auth": { "type": "bearer" },
       "metrics": {
-        "plan": {
-          "endpoint": "",
-          "method": "GET",
-          "fields": [
-            { "key": "plan_name", "path": "" }
-          ]
-        },
-        "usage": {
-          "endpoint": "",
-          "method": "GET",
-          "fields": [
-            { "key": "used_tokens", "path": "", "unit": "tokens" },
-            { "key": "limit_tokens", "path": "", "unit": "tokens" },
-            { "key": "remain_tokens", "path": "", "unit": "tokens" },
-            { "key": "period", "path": "" }
-          ]
-        },
         "balance": {
           "endpoint": "https://api.deepseek.com/user/balance",
           "method": "GET",
@@ -116,29 +92,10 @@
       "apiKey": "",
       "auth": { "type": "bearer" },
       "metrics": {
-        "plan": {
-          "endpoint": "",
-          "method": "GET",
-          "fields": [
-            { "key": "plan_name", "path": "" }
-          ]
-        },
         "usage": {
           "endpoint": "https://open.bigmodel.cn/api/paas/v4/usage",
           "method": "GET",
-          "fields": [
-            { "key": "used_tokens", "path": "", "unit": "tokens" },
-            { "key": "limit_tokens", "path": "", "unit": "tokens" },
-            { "key": "remain_tokens", "path": "", "unit": "tokens" },
-            { "key": "period", "path": "" }
-          ]
-        },
-        "balance": {
-          "endpoint": "",
-          "method": "GET",
-          "fields": [
-            { "key": "balance", "path": "", "currency": "CNY" }
-          ]
+          "fields": []
         }
       }
     }

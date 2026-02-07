@@ -263,9 +263,16 @@ const PLATFORM_DEFAULTS = {
     balancePath: 'balance_infos[0].total_balance',
     currencyPath: 'balance_infos[0].currency'
   },
+  kimi: {
+    name: 'Moonshot AI (Kimi)',
+    balanceEndpoint: 'https://api.moonshot.cn/v1/users/me/balance',
+    method: 'GET',
+    auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' },
+    balancePath: 'data.available_balance',
+    currency: 'CNY'
+  },
   zhipu: {
     name: '智谱AI (ZAI)',
-    balanceEndpoint: 'https://open.bigmodel.cn/api/paas/v4/usage',
     method: 'GET',
     auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' }
   }
@@ -574,10 +581,14 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
             ? effectiveMetric.currency
             : null;
 
-      const pathStr =
+      let pathStr =
         fieldConfig && (fieldConfig.path || fieldConfig.balancePath || fieldConfig.jsonPath)
           ? String(fieldConfig.path || fieldConfig.balancePath || fieldConfig.jsonPath)
           : '';
+      if (!pathStr && metricId === 'balance' && fieldKey === 'balance') {
+        const legacyPath = effectivePlatform && effectivePlatform.balancePath ? String(effectivePlatform.balancePath).trim() : '';
+        if (legacyPath) pathStr = legacyPath;
+      }
       if (!pathStr) {
         fields[fieldKey] = {
           ok: true,
@@ -603,10 +614,14 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
       }
 
       value = toNumberIfPossible(value);
-      const currencyPath =
+      let currencyPath =
         fieldConfig && (fieldConfig.currencyPath || fieldConfig.currency_path)
           ? String(fieldConfig.currencyPath || fieldConfig.currency_path)
           : '';
+      if (!currencyPath && metricId === 'balance' && fieldKey === 'balance') {
+        const legacyCurrencyPath = effectivePlatform && effectivePlatform.currencyPath ? String(effectivePlatform.currencyPath).trim() : '';
+        if (legacyCurrencyPath) currencyPath = legacyCurrencyPath;
+      }
       const currencyValue = currencyPath ? extractByPath(rawData, currencyPath) : null;
 
       fields[fieldKey] = {

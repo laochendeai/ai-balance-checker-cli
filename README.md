@@ -16,12 +16,12 @@
 
 | Key | 平台 | 说明 |
 |---|---|---|
-| deepseek | DeepSeek | 内置 `balance` 示例 endpoint + 字段路径 |
-| zhipu | 智谱AI | 内置 `usage` endpoint（需配置字段路径） |
-| kimi | Moonshot / Kimi | 需要配置 endpoint + 字段路径 |
-| qwen | 通义千问 | 需要配置 endpoint + 字段路径 |
-| doubao | 豆包 | 需要配置 endpoint + 字段路径 |
-| minimax | MiniMax | 需要配置 endpoint + 字段路径 |
+| deepseek | DeepSeek | 内置 `balance` endpoint + 字段路径 |
+| kimi | Moonshot / Kimi | 内置 `balance` endpoint + 字段路径 |
+| zhipu | 智谱AI | 内置 `usage` endpoint（字段路径需用 `--raw` 自行确认后配置） |
+| qwen | 通义千问 | 需要自行配置（部分平台可能无公开“余额/用量”API，或需要 AK/SK 签名） |
+| doubao | 豆包 | 需要自行配置（可能需要 AK/SK 签名） |
+| minimax | MiniMax | 需要自行配置（可能需要 AK/SK 签名） |
 
 > 说明：不同平台/账号的「套餐/用量/余额」字段名可能不同，本项目不硬编码解析规则，推荐通过 `--raw` 拿到返回 JSON 后再填 `path`。
 
@@ -58,6 +58,12 @@ export PATH="$(npm config get prefix)/bin:$PATH"
 ```bash
 cp config.example.json config.json
 ```
+
+### endpoint 是什么？
+
+`endpoint` 就是「查询套餐/用量/余额」对应的 **接口 URL**。它和你平时调用模型的 `chat/completions` 之类接口不是一回事。
+
+> 你填了 Key 但仍提示 “未配置 endpoint”，通常表示：该平台的账单/额度接口没有填（或该平台本身不提供可用的公开查询 API）。
 
 ### 2) 推荐配置结构：`metrics`（套餐/用量/余额）
 
@@ -151,6 +157,8 @@ MOONSHOT_API_KEY="xxx"
 - `~/.ai-balance-checker/.env`
 
 并把里面的 `KEY=VALUE` 当作环境变量使用（不会覆盖已存在的系统环境变量）。
+
+> 小结：不强制你用 `export`。你也可以直接把 `apiKey` 写在 `config.json` 里，但更推荐用 `.env`/环境变量管理密钥，避免误提交。
 
 ## 使用方法（CLI）
 

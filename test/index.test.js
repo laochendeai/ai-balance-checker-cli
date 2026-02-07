@@ -116,6 +116,50 @@ async function main() {
     });
   });
 
+  await run('fetchPlatformResult uses Kimi default endpoint + balancePath', async () => {
+    let requestedUrl = null;
+    __setHttpClientForTests({
+      requestJson: async ({ url }) => {
+        requestedUrl = url;
+        return {
+          status: 200,
+          data: {
+            code: 0,
+            data: { available_balance: 49.58894, voucher_balance: 46.58893, cash_balance: 3.00001 },
+            scode: '0x0',
+            status: true
+          }
+        };
+      }
+    });
+
+    const config = {
+      language: 'zh',
+      platforms: {
+        kimi: {
+          name: 'Moonshot AI (Kimi)',
+          apiKey: 'test-key',
+          auth: { type: 'bearer' },
+          metrics: {
+            balance: {
+              endpoint: '',
+              fields: [{ key: 'balance', path: '' }]
+            }
+          }
+        }
+      }
+    };
+
+    const result = await fetchPlatformResult('kimi', config, { lang: 'zh' });
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(requestedUrl, 'https://api.moonshot.cn/v1/users/me/balance');
+    assert.ok(Math.abs(result.value - 49.58894) < 1e-9);
+    assert.strictEqual(result.currency, 'CNY');
+    assert.strictEqual(result.metrics.balance.fields.balance.ok, true);
+    assert.ok(Math.abs(result.metrics.balance.fields.balance.value - 49.58894) < 1e-9);
+    assert.strictEqual(result.metrics.balance.fields.balance.currency, 'CNY');
+  });
+
   await run('fetchPlatformResult errors on missing endpoint', async () => {
     __setHttpClientForTests({
       requestJson: async () => {
