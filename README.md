@@ -136,6 +136,22 @@ export MINIMAX_API_KEY="your-key"
 export DOUBAO_API_KEY="your-key"
 ```
 
+## `.env`（可选：不想用 export 时）
+
+如果你不想在 shell 里 `export`，可以在运行目录创建 `.env` 文件（不要提交到仓库），例如：
+
+```bash
+DASHSCOPE_API_KEY="xxx"
+DEEPSEEK_API_KEY="xxx"
+MOONSHOT_API_KEY="xxx"
+```
+
+程序启动时会自动读取：
+- `./.env`
+- `~/.ai-balance-checker/.env`
+
+并把里面的 `KEY=VALUE` 当作环境变量使用（不会覆盖已存在的系统环境变量）。
+
 ## 使用方法（CLI）
 
 ```bash
@@ -159,6 +175,9 @@ ai-balance check --raw
 
 # 关闭跑马灯/进度提示（适合重定向/CI）
 ai-balance check --no-spinner
+
+# 包含未配置 endpoint 的平台（默认会跳过）
+ai-balance check --all
 
 # 中文交互菜单
 ai-balance menu

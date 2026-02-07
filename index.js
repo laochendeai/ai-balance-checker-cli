@@ -31,7 +31,8 @@ const i18n = {
     jsonHelp: '输出 JSON（机器可读）',
     rawHelp: '输出原始响应（调试用）',
     noSpinnerHelp: '关闭跑马灯/进度提示',
-    missingEndpoint: '未配置 endpoint',
+    allHelp: '包含未配置的平台（默认会跳过未配置 endpoint 的平台）',
+    missingEndpoint: '未配置 endpoint（接口 URL）',
     missingBalanceEndpoint: '未配置 balanceEndpoint',
     fieldsNotConfigured: '未配置 fields，无法提取数据',
     fieldPathNotConfigured: '未配置 path，无法提取字段',
@@ -52,7 +53,9 @@ const i18n = {
     menuTitle: '中文菜单',
     menuHelp: '打开交互式中文菜单',
     guiHelp: '启动 Windows 浮动窗口（置顶 + 托盘）',
-    winOnly: '该命令仅支持 Windows'
+    winOnly: '该命令仅支持 Windows',
+    skippedPlatforms: '已跳过未配置 endpoint 的平台',
+    runAllHint: '如需查看全部平台（包括未配置项），请加 --all'
   },
   en: {
     loading: 'Checking...',
@@ -71,6 +74,7 @@ const i18n = {
     jsonHelp: 'Output JSON (machine-readable)',
     rawHelp: 'Include raw response (debug)',
     noSpinnerHelp: 'Disable spinner/progress',
+    allHelp: 'Include unconfigured platforms (default skips missing endpoints)',
     missingEndpoint: 'endpoint not configured',
     missingBalanceEndpoint: 'balanceEndpoint not configured',
     fieldsNotConfigured: 'fields not configured; cannot extract data',
@@ -92,9 +96,56 @@ const i18n = {
     menuTitle: 'Menu',
     menuHelp: 'Open interactive menu',
     guiHelp: 'Launch Windows floating window (topmost + tray)',
-    winOnly: 'This command is Windows-only'
+    winOnly: 'This command is Windows-only',
+    skippedPlatforms: 'Skipped platforms missing endpoint',
+    runAllHint: 'Use --all to include them'
   }
 };
+
+function parseDotEnvValue(rawValue) {
+  const value = String(rawValue || '').trim();
+  if (!value) return '';
+  const first = value[0];
+  const last = value[value.length - 1];
+  if ((first === '"' && last === '"') || (first === "'" && last === "'")) return value.slice(1, -1);
+  return value;
+}
+
+function applyDotEnvFile(filePath) {
+  if (!filePath) return;
+  if (!fs.existsSync(filePath)) return;
+
+  let content = '';
+  try {
+    content = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return;
+  }
+
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#')) continue;
+
+    const index = trimmed.indexOf('=');
+    if (index <= 0) continue;
+    const key = trimmed.slice(0, index).trim();
+    const rawValue = trimmed.slice(index + 1);
+    if (!key) continue;
+
+    if (process.env[key] !== undefined) continue; // do not override
+    const value = parseDotEnvValue(rawValue);
+    if (!value) continue;
+    process.env[key] = value;
+  }
+}
+
+function applyDotEnv() {
+  applyDotEnvFile(path.join(process.cwd(), '.env'));
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  if (homeDir) applyDotEnvFile(path.join(homeDir, '.ai-balance-checker', '.env'));
+}
 
 function resolveLang(cliLang, configLang) {
   const normalized = String(cliLang || configLang || 'zh').trim().toLowerCase();
@@ -258,6 +309,33 @@ function buildAuthHeaders(platformConfig, lang) {
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeEndpointFromConfig(metricConfig) {
+  if (!metricConfig || typeof metricConfig !== 'object') return '';
+  const candidates = [metricConfig.endpoint, metricConfig.balanceEndpoint, metricConfig.url];
+  for (const item of candidates) {
+    if (typeof item === 'string' && item.trim()) return item.trim();
+  }
+  return '';
+}
+
+function hasAnyEndpointConfiguredForPlatform(platformConfig) {
+  if (!platformConfig || typeof platformConfig !== 'object') return false;
+
+  if (platformConfig.metrics && isPlainObject(platformConfig.metrics)) {
+    for (const metricConfig of Object.values(platformConfig.metrics)) {
+      const endpoint = normalizeEndpointFromConfig(metricConfig);
+      if (endpoint) return true;
+    }
+    if (typeof platformConfig.balanceEndpoint === 'string' && platformConfig.balanceEndpoint.trim()) return true;
+    if (typeof platformConfig.usageEndpoint === 'string' && platformConfig.usageEndpoint.trim()) return true;
+    if (typeof platformConfig.planEndpoint === 'string' && platformConfig.planEndpoint.trim()) return true;
+    return false;
+  }
+
+  if (typeof platformConfig.balanceEndpoint === 'string' && platformConfig.balanceEndpoint.trim()) return true;
+  return false;
 }
 
 function buildUrlWithQuery(urlStr, query) {
@@ -429,11 +507,21 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
 
   const effectiveMetric = mergeMetricConfig(effectivePlatform, metricConfig);
   const metricName = (metricConfig && metricConfig.name) || metricId;
-  const endpoint = effectiveMetric.endpoint;
+  let endpoint = normalizeEndpointFromConfig(effectiveMetric);
+  if (!endpoint) {
+    if (metricId === 'balance' && typeof effectivePlatform.balanceEndpoint === 'string' && effectivePlatform.balanceEndpoint.trim()) {
+      endpoint = effectivePlatform.balanceEndpoint.trim();
+    } else if (metricId === 'usage' && typeof effectivePlatform.usageEndpoint === 'string' && effectivePlatform.usageEndpoint.trim()) {
+      endpoint = effectivePlatform.usageEndpoint.trim();
+    } else if (metricId === 'plan' && typeof effectivePlatform.planEndpoint === 'string' && effectivePlatform.planEndpoint.trim()) {
+      endpoint = effectivePlatform.planEndpoint.trim();
+    }
+  }
   const timeoutMs = typeof effectiveMetric.timeoutMs === 'number' ? effectiveMetric.timeoutMs : 15000;
 
   if (!endpoint) {
-    return { metric: metricId, name: metricName, ok: false, error: i18n[lang].missingEndpoint };
+    const configHint = `platforms.${platformKey}.metrics.${metricId}.endpoint`;
+    return { metric: metricId, name: metricName, ok: false, code: 'missing_endpoint', error: `${i18n[lang].missingEndpoint}: ${configHint}` };
   }
 
   let headers = {};
@@ -486,7 +574,10 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
             ? effectiveMetric.currency
             : null;
 
-      const pathStr = fieldConfig && fieldConfig.path ? String(fieldConfig.path) : '';
+      const pathStr =
+        fieldConfig && (fieldConfig.path || fieldConfig.balancePath || fieldConfig.jsonPath)
+          ? String(fieldConfig.path || fieldConfig.balancePath || fieldConfig.jsonPath)
+          : '';
       if (!pathStr) {
         fields[fieldKey] = {
           ok: true,
@@ -512,7 +603,10 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
       }
 
       value = toNumberIfPossible(value);
-      const currencyPath = fieldConfig && fieldConfig.currencyPath ? String(fieldConfig.currencyPath) : '';
+      const currencyPath =
+        fieldConfig && (fieldConfig.currencyPath || fieldConfig.currency_path)
+          ? String(fieldConfig.currencyPath || fieldConfig.currency_path)
+          : '';
       const currencyValue = currencyPath ? extractByPath(rawData, currencyPath) : null;
 
       fields[fieldKey] = {
@@ -670,15 +764,17 @@ function createSpinner(stdout) {
   const frames = ['|', '/', '-', '\\'];
   let timer = null;
   let frameIndex = 0;
-  let lastLen = 0;
+
+  function clearLine() {
+    // Clears the whole current line (avoids issues with wide chars like Chinese).
+    stdout.write('\r\x1b[2K');
+  }
 
   function render(text) {
     const frame = frames[frameIndex % frames.length];
     frameIndex++;
-    const line = `${text} ${frame}`;
-    const padding = lastLen > line.length ? ' '.repeat(lastLen - line.length) : '';
-    lastLen = line.length;
-    stdout.write(`\r${line}${padding}`);
+    clearLine();
+    stdout.write(`${text} ${frame}`);
   }
 
   return {
@@ -691,8 +787,7 @@ function createSpinner(stdout) {
       if (!timer) return;
       clearInterval(timer);
       timer = null;
-      stdout.write(`\r${' '.repeat(lastLen)}\r`);
-      lastLen = 0;
+      clearLine();
     }
   };
 }
@@ -713,6 +808,7 @@ ${t.options}:
   --json                 ${t.jsonHelp}
   --raw                  ${t.rawHelp}
   --no-spinner           ${t.noSpinnerHelp}
+  --all                  ${t.allHelp}
 
 ${t.commands}:
   check                  ${t.checkAll}
@@ -745,7 +841,8 @@ function parseArgs(argv) {
     lang: null,
     json: false,
     raw: false,
-    noSpinner: false
+    noSpinner: false,
+    all: false
   };
 
   let commandSet = false;
@@ -767,6 +864,10 @@ function parseArgs(argv) {
     }
     if (arg === '--no-spinner') {
       params.noSpinner = true;
+      continue;
+    }
+    if (arg === '--all') {
+      params.all = true;
       continue;
     }
     if (arg === '--config' || arg === '-c') {
@@ -812,7 +913,32 @@ function sleep(ms) {
 }
 
 async function runCheckAndPrint(config, args, lang) {
-  const platforms = args.platform ? [args.platform] : Object.keys(config.platforms || {});
+  const allPlatforms = Object.keys(config.platforms || {});
+  let platforms = [];
+  const skipped = [];
+
+  if (args.platform) {
+    platforms = [args.platform];
+  } else if (!args.json && !args.all) {
+    for (const key of allPlatforms) {
+      const pcfg = config.platforms && config.platforms[key];
+      if (hasAnyEndpointConfiguredForPlatform(pcfg)) platforms.push(key);
+      else skipped.push(key);
+    }
+
+    if (platforms.length === 0) {
+      platforms = allPlatforms.slice();
+    } else if (skipped.length > 0) {
+      const parts = skipped.map(k => {
+        const name = (config.platforms && config.platforms[k] && config.platforms[k].name) || k;
+        return `${name}(${k})`;
+      });
+      console.log(`${i18n[lang].skippedPlatforms}: ${parts.join(', ')}`);
+      console.log(`${i18n[lang].runAllHint}\n`);
+    }
+  } else {
+    platforms = allPlatforms.slice();
+  }
   const results = [];
   const useSpinner = shouldUseSpinner(args, process.stdout);
   const spinner = useSpinner ? createSpinner(process.stdout) : null;
@@ -835,7 +961,11 @@ async function runCheckAndPrint(config, args, lang) {
       const metric = result.metrics[metricId];
       const metricLabel = labelForMetric(metricId, lang);
       if (!metric || metric.ok === false) {
-        console.log(`  [${metricLabel}] ERROR: ${metric && metric.error ? metric.error : ''}`);
+        if (metric && metric.code === 'missing_endpoint') {
+          console.log(`  [${metricLabel}] ${metric.error}`);
+        } else {
+          console.log(`  [${metricLabel}] ERROR: ${metric && metric.error ? metric.error : ''}`);
+        }
         if (args.raw && metric && metric.raw !== undefined) console.log(JSON.stringify(metric.raw, null, 2));
         continue;
       }
@@ -1008,6 +1138,7 @@ function launchWindowsGui(args, lang) {
 
 // Main function
 async function main() {
+  applyDotEnv();
   let args = null;
   try {
     args = parseArgs(process.argv);

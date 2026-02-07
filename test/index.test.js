@@ -57,12 +57,17 @@ async function main() {
       lang: 'en',
       json: true,
       raw: true,
-      noSpinner: false
+      noSpinner: false,
+      all: false
     });
 
     const args2 = parseArgs(['node', 'index.js', '--platform', 'deepseek', 'check']);
     assert.strictEqual(args2.command, 'check');
     assert.strictEqual(args2.platform, 'deepseek');
+
+    const args3 = parseArgs(['node', 'index.js', 'check', '--all']);
+    assert.strictEqual(args3.command, 'check');
+    assert.strictEqual(args3.all, true);
   });
 
   await run('shouldUseSpinner respects json/noSpinner/tty', () => {
