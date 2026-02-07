@@ -160,6 +160,23 @@ MOONSHOT_API_KEY="xxx"
 
 > 小结：不强制你用 `export`。你也可以直接把 `apiKey` 写在 `config.json` 里，但更推荐用 `.env`/环境变量管理密钥，避免误提交。
 
+### 网络/代理（解决 Request timeout）
+
+如果你遇到 `Request timeout`（尤其在 WSL/公司网络/代理环境），可以在 `.env` 里加入代理与网络参数：
+
+```bash
+# 代理（按你的实际端口修改）
+HTTPS_PROXY="http://127.0.0.1:7890"
+HTTP_PROXY="http://127.0.0.1:7890"
+NO_PROXY="localhost,127.0.0.1"
+
+# 如遇到 IPv6 网络异常导致超时，可强制走 IPv4
+AI_BALANCE_FORCE_IPV4="1"
+
+# 全局默认超时（毫秒），可按需增大
+AI_BALANCE_TIMEOUT_MS="60000"
+```
+
 ## 使用方法（CLI）
 
 ```bash

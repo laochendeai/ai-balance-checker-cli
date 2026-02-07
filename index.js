@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const dns = require('dns');
+const tls = require('tls');
 
 const KNOWN_PLATFORMS = ['qwen', 'doubao', 'kimi', 'deepseek', 'minimax', 'zhipu'];
 
@@ -360,10 +362,250 @@ function buildUrlWithQuery(urlStr, query) {
   return url;
 }
 
+function isTruthyEnvValue(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (!normalized) return false;
+  if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') return false;
+  return true;
+}
+
+function normalizeProxyUrlString(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
+
+function isHostInNoProxy(hostname, noProxyValue) {
+  const host = String(hostname || '')
+    .trim()
+    .toLowerCase();
+  const raw = String(noProxyValue || '').trim();
+  if (!host || !raw) return false;
+  if (raw === '*') return true;
+
+  const entries = raw
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  for (const entry of entries) {
+    if (entry === '*') return true;
+    const withoutPort = entry.split(':')[0].toLowerCase();
+    const domain = withoutPort.startsWith('.') ? withoutPort.slice(1) : withoutPort;
+    if (!domain) continue;
+    if (host === domain) return true;
+    if (host.endsWith(`.${domain}`)) return true;
+  }
+
+  return false;
+}
+
+function resolveProxyForUrl(urlObj) {
+  const noProxy = process.env.AI_BALANCE_NO_PROXY || process.env.NO_PROXY || process.env.no_proxy || '';
+  if (noProxy && isHostInNoProxy(urlObj.hostname, noProxy)) return null;
+
+  const candidates =
+    urlObj.protocol === 'https:'
+      ? [
+          'AI_BALANCE_HTTPS_PROXY',
+          'HTTPS_PROXY',
+          'https_proxy',
+          'AI_BALANCE_PROXY',
+          'ALL_PROXY',
+          'all_proxy',
+          'AI_BALANCE_HTTP_PROXY',
+          'HTTP_PROXY',
+          'http_proxy'
+        ]
+      : urlObj.protocol === 'http:'
+        ? ['AI_BALANCE_HTTP_PROXY', 'HTTP_PROXY', 'http_proxy', 'AI_BALANCE_PROXY', 'ALL_PROXY', 'all_proxy']
+        : ['AI_BALANCE_PROXY', 'ALL_PROXY', 'all_proxy'];
+
+  for (const name of candidates) {
+    const value = process.env[name];
+    if (typeof value === 'string' && value.trim()) return normalizeProxyUrlString(value);
+  }
+
+  return null;
+}
+
+function buildProxyAuthorization(proxyUrlObj) {
+  const user = proxyUrlObj && proxyUrlObj.username ? String(proxyUrlObj.username) : '';
+  if (!user) return null;
+  const pass = proxyUrlObj && proxyUrlObj.password ? String(proxyUrlObj.password) : '';
+  const decodedUser = decodeURIComponent(user);
+  const decodedPass = decodeURIComponent(pass);
+  const token = Buffer.from(`${decodedUser}:${decodedPass}`, 'utf8').toString('base64');
+  return `Basic ${token}`;
+}
+
+function createIpv4FirstLookup(forceIpv4) {
+  return (hostname, options, callback) => {
+    const normalizedOptions = typeof options === 'number' ? { family: options } : { ...(options || {}) };
+    if (forceIpv4) normalizedOptions.family = 4;
+
+    const family = normalizedOptions.family || 0;
+    if (family === 4 || family === 6 || normalizedOptions.all) {
+      return dns.lookup(hostname, normalizedOptions, callback);
+    }
+
+    return dns.lookup(hostname, { ...normalizedOptions, all: true }, (err, addresses) => {
+      if (err) return callback(err);
+      if (!Array.isArray(addresses) || addresses.length === 0) return callback(new Error('DNS lookup returned no addresses'));
+
+      const sorted = addresses.slice().sort((a, b) => {
+        if (a.family === b.family) return 0;
+        if (a.family === 4) return -1;
+        if (b.family === 4) return 1;
+        return 0;
+      });
+
+      const chosen = sorted[0];
+      return callback(null, chosen.address, chosen.family);
+    });
+  };
+}
+
+function parseResponseBody(res, buffer) {
+  const contentType = String(res.headers['content-type'] || '').toLowerCase();
+  const text = buffer.toString('utf8');
+  if (!text) return null;
+  const shouldParseJson = contentType.includes('application/json');
+  if (shouldParseJson) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function requestJsonDirect({ transport, requestOptions, payload, timeoutMs }) {
+  return new Promise((resolve, reject) => {
+    const req = transport.request(requestOptions, res => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const data = parseResponseBody(res, buffer);
+        resolve({ status: res.statusCode || 0, data, headers: res.headers });
+      });
+    });
+
+    req.on('error', reject);
+    if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+      req.setTimeout(timeoutMs, () => req.destroy(new Error('Request timeout')));
+    }
+
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+function requestJsonViaHttpProxy({ urlObj, proxyUrlObj, method, headers, payload, timeoutMs, lookup }) {
+  const proxyTransport = proxyUrlObj.protocol === 'https:' ? https : http;
+  const proxyPort = proxyUrlObj.port ? Number(proxyUrlObj.port) : proxyUrlObj.protocol === 'https:' ? 443 : 80;
+
+  const requestHeaders = { ...(headers || {}) };
+  if (requestHeaders.Host === undefined && requestHeaders.host === undefined) requestHeaders.Host = urlObj.host;
+
+  const proxyAuth = buildProxyAuthorization(proxyUrlObj);
+  if (proxyAuth) requestHeaders['Proxy-Authorization'] = proxyAuth;
+
+  const requestOptions = {
+    method,
+    hostname: proxyUrlObj.hostname,
+    port: proxyPort,
+    path: urlObj.toString(),
+    headers: requestHeaders,
+    lookup
+  };
+
+  return requestJsonDirect({ transport: proxyTransport, requestOptions, payload, timeoutMs });
+}
+
+function requestJsonViaHttpsProxyConnect({ urlObj, proxyUrlObj, method, headers, payload, timeoutMs, lookup }) {
+  const proxyTransport = proxyUrlObj.protocol === 'https:' ? https : http;
+  const proxyPort = proxyUrlObj.port ? Number(proxyUrlObj.port) : proxyUrlObj.protocol === 'https:' ? 443 : 80;
+  const targetPort = urlObj.port ? Number(urlObj.port) : 443;
+
+  return new Promise((resolve, reject) => {
+    const connectHeaders = { Host: `${urlObj.hostname}:${targetPort}` };
+    const proxyAuth = buildProxyAuthorization(proxyUrlObj);
+    if (proxyAuth) connectHeaders['Proxy-Authorization'] = proxyAuth;
+
+    const connectReq = proxyTransport.request({
+      method: 'CONNECT',
+      hostname: proxyUrlObj.hostname,
+      port: proxyPort,
+      path: `${urlObj.hostname}:${targetPort}`,
+      headers: connectHeaders,
+      lookup
+    });
+
+    connectReq.on('connect', (res, socket, head) => {
+      if ((res.statusCode || 0) < 200 || (res.statusCode || 0) >= 300) {
+        socket.destroy();
+        reject(new Error(`Proxy CONNECT failed: ${res.statusCode || 0}`));
+        return;
+      }
+
+      if (head && head.length > 0) socket.unshift(head);
+
+      const tlsSocket = tls.connect({
+        socket,
+        servername: urlObj.hostname
+      });
+
+      const req = https.request(
+        {
+          method,
+          hostname: urlObj.hostname,
+          port: targetPort,
+          path: `${urlObj.pathname}${urlObj.search}`,
+          headers,
+          createConnection: () => tlsSocket
+        },
+        res2 => {
+          const chunks = [];
+          res2.on('data', chunk => chunks.push(chunk));
+          res2.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            const data = parseResponseBody(res2, buffer);
+            resolve({ status: res2.statusCode || 0, data, headers: res2.headers });
+          });
+        }
+      );
+
+      req.on('error', reject);
+      if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+        req.setTimeout(timeoutMs, () => req.destroy(new Error('Request timeout')));
+      }
+
+      if (payload) req.write(payload);
+      req.end();
+    });
+
+    connectReq.on('error', reject);
+    if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+      connectReq.setTimeout(timeoutMs, () => connectReq.destroy(new Error('Request timeout')));
+    }
+
+    connectReq.end();
+  });
+}
+
 async function requestJsonViaNode({ method, url, headers, query, body, timeoutMs }) {
   const urlObj = buildUrlWithQuery(url, query);
   const transport = urlObj.protocol === 'https:' ? https : http;
-
   const requestHeaders = { ...(headers || {}) };
   const normalizedMethod = method ? String(method).toUpperCase() : 'GET';
   const canSendBody = normalizedMethod !== 'GET' && normalizedMethod !== 'HEAD';
@@ -389,54 +631,39 @@ async function requestJsonViaNode({ method, url, headers, query, body, timeoutMs
     if (!hasContentLength) requestHeaders['Content-Length'] = String(payload.length);
   }
 
+  const forceIpv4 = isTruthyEnvValue(process.env.AI_BALANCE_FORCE_IPV4);
+  const lookup = createIpv4FirstLookup(forceIpv4);
+
+  const proxyUrl = resolveProxyForUrl(urlObj);
+  if (proxyUrl) {
+    const proxyUrlObj = new URL(proxyUrl);
+    if (urlObj.protocol === 'http:') {
+      return await requestJsonViaHttpProxy({ urlObj, proxyUrlObj, method: normalizedMethod, headers: requestHeaders, payload, timeoutMs, lookup });
+    }
+    if (urlObj.protocol === 'https:') {
+      return await requestJsonViaHttpsProxyConnect({
+        urlObj,
+        proxyUrlObj,
+        method: normalizedMethod,
+        headers: requestHeaders,
+        payload,
+        timeoutMs,
+        lookup
+      });
+    }
+  }
+
   const requestOptions = {
     protocol: urlObj.protocol,
     method: normalizedMethod,
     hostname: urlObj.hostname,
     port: urlObj.port || undefined,
     path: `${urlObj.pathname}${urlObj.search}`,
-    headers: requestHeaders
+    headers: requestHeaders,
+    lookup
   };
 
-  return await new Promise((resolve, reject) => {
-    const req = transport.request(requestOptions, res => {
-      const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
-      res.on('end', () => {
-        const buffer = Buffer.concat(chunks);
-        const contentType = String(res.headers['content-type'] || '').toLowerCase();
-        const text = buffer.toString('utf8');
-
-        let data = null;
-        if (text) {
-          const shouldParseJson = contentType.includes('application/json');
-          if (shouldParseJson) {
-            try {
-              data = JSON.parse(text);
-            } catch {
-              data = text;
-            }
-          } else {
-            try {
-              data = JSON.parse(text);
-            } catch {
-              data = text;
-            }
-          }
-        }
-
-        resolve({ status: res.statusCode || 0, data, headers: res.headers });
-      });
-    });
-
-    req.on('error', reject);
-    if (typeof timeoutMs === 'number' && timeoutMs > 0) {
-      req.setTimeout(timeoutMs, () => req.destroy(new Error('Request timeout')));
-    }
-
-    if (payload) req.write(payload);
-    req.end();
-  });
+  return await requestJsonDirect({ transport, requestOptions, payload, timeoutMs });
 }
 
 let httpClient = {
@@ -524,7 +751,10 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
       endpoint = effectivePlatform.planEndpoint.trim();
     }
   }
-  const timeoutMs = typeof effectiveMetric.timeoutMs === 'number' ? effectiveMetric.timeoutMs : 15000;
+  const envTimeoutMsRaw = process.env.AI_BALANCE_TIMEOUT_MS;
+  const envTimeoutMs = envTimeoutMsRaw !== undefined ? Number(envTimeoutMsRaw) : NaN;
+  const defaultTimeoutMs = Number.isFinite(envTimeoutMs) && envTimeoutMs > 0 ? envTimeoutMs : 15000;
+  const timeoutMs = typeof effectiveMetric.timeoutMs === 'number' ? effectiveMetric.timeoutMs : defaultTimeoutMs;
 
   if (!endpoint) {
     const configHint = `platforms.${platformKey}.metrics.${metricId}.endpoint`;
@@ -641,7 +871,8 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
     return result;
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
-    return { metric: metricId, name: metricName, ok: false, error: `${i18n[lang].requestFailed}: ${message}` };
+    const suffix = endpoint ? ` (${endpoint})` : '';
+    return { metric: metricId, name: metricName, ok: false, error: `${i18n[lang].requestFailed}: ${message}${suffix}` };
   }
 }
 
