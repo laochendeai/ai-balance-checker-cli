@@ -34,8 +34,24 @@ cd ai-balance-checker
 # Install dependencies
 npm install
 
-# Make executable (optional)
+# Make executable (optional, for running as ./index.js)
 chmod +x index.js
+
+# Install CLI command (pick one)
+# Option A (recommended for local dev): link to global bin
+npm link
+# Option B: install globally
+# npm install -g .
+```
+
+### Troubleshooting: `ai-balance` command not found
+
+If you already ran `npm link` / `npm install -g .` but still see `ai-balance: command not found`,
+make sure your npm global bin directory is in `PATH`:
+
+```bash
+echo "$(npm config get prefix)/bin"
+export PATH="$(npm config get prefix)/bin:$PATH"
 ```
 
 ## Configuration
