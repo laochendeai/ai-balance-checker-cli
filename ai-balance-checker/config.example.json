@@ -3,7 +3,10 @@
     "qwen": {
       "name": "通义千问",
       "apiKey": "",
-      "balanceEndpoint": "https://dashscope.aliyuncs.com/api/v1/user/stats",
+      "balanceEndpoint": "",
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "",
       "unit": "tokens",
       "currency": "CNY"
     },
@@ -11,6 +14,9 @@
       "name": "豆包",
       "apiKey": "",
       "balanceEndpoint": "",
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "",
       "unit": "tokens",
       "currency": "CNY"
     },
@@ -18,6 +24,9 @@
       "name": "Moonshot AI (Kimi)",
       "apiKey": "",
       "balanceEndpoint": "https://api.moonshot.cn/v1/user/info",
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "",
       "unit": "tokens",
       "currency": "CNY"
     },
@@ -25,13 +34,20 @@
       "name": "DeepSeek",
       "apiKey": "",
       "balanceEndpoint": "https://api.deepseek.com/user/balance",
-      "unit": "tokens",
-      "currency": "CNY"
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "balance_infos[0].total_balance",
+      "currencyPath": "balance_infos[0].currency",
+      "unit": "",
+      "currency": ""
     },
     "minimax": {
       "name": "MiniMax",
       "apiKey": "",
       "balanceEndpoint": "",
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "",
       "unit": "tokens",
       "currency": "CNY"
     },
@@ -39,6 +55,9 @@
       "name": "智谱AI (ZAI)",
       "apiKey": "",
       "balanceEndpoint": "https://open.bigmodel.cn/api/paas/v4/usage",
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "",
       "unit": "tokens",
       "currency": "CNY"
     }

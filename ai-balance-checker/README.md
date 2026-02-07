@@ -11,17 +11,18 @@ Lightweight CLI tool for checking account balances across multiple AI platforms.
 ✅ Config file support
 ✅ Environment variable support
 ✅ Clear error messages
+✅ Optional JSON / raw output for scripting & debugging
 
 ## Supported Platforms
 
 | Platform | Name | Status |
 |----------|------|--------|
-| qwen | 通义千问 | 🟡 API endpoint needed |
-| doubao | 豆包 | 🟡 API endpoint needed |
-| kimi | Moonshot AI (Kimi) | 🟢 Implemented |
-| deepseek | DeepSeek | 🟢 Implemented |
-| minimax | MiniMax | 🟡 API endpoint needed |
-| zhipu | 智谱AI | 🟡 API endpoint needed |
+| deepseek | DeepSeek | 🟢 Default endpoint + default parser |
+| zhipu | 智谱AI | 🟡 Default endpoint (need `balancePath`) |
+| kimi | Moonshot AI (Kimi) | 🟡 Need `balanceEndpoint` + `balancePath` |
+| qwen | 通义千问 | 🟡 Need `balanceEndpoint` + `balancePath` |
+| doubao | 豆包 | 🟡 Need `balanceEndpoint` + `balancePath` |
+| minimax | MiniMax | 🟡 Need `balanceEndpoint` + `balancePath` |
 
 ## Installation
 
@@ -33,8 +34,24 @@ cd ai-balance-checker
 # Install dependencies
 npm install
 
-# Make executable (optional)
+# Make executable (optional, for running as ./index.js)
 chmod +x index.js
+
+# Install CLI command (pick one)
+# Option A (recommended for local dev): link to global bin
+npm link
+# Option B: install globally
+# npm install -g .
+```
+
+### Troubleshooting: `ai-balance` command not found
+
+If you already ran `npm link` / `npm install -g .` but still see `ai-balance: command not found`,
+make sure your npm global bin directory is in `PATH`:
+
+```bash
+echo "$(npm config get prefix)/bin"
+export PATH="$(npm config get prefix)/bin:$PATH"
 ```
 
 ## Configuration
@@ -50,30 +67,45 @@ cp config.example.json config.json
 ```json
 {
   "platforms": {
-    "kimi": {
-      "name": "Moonshot AI (Kimi)",
-      "apiKey": "your-kimi-api-key",
-      "balanceEndpoint": "https://api.moonshot.cn/v1/user/info",
-      "unit": "tokens",
-      "currency": "CNY"
-    },
     "deepseek": {
       "name": "DeepSeek",
       "apiKey": "your-deepseek-api-key",
       "balanceEndpoint": "https://api.deepseek.com/user/balance",
-      "unit": "tokens",
-      "currency": "CNY"
+      "method": "GET",
+      "auth": { "type": "bearer" },
+      "balancePath": "balance_infos[0].total_balance",
+      "currencyPath": "balance_infos[0].currency"
     }
   },
   "language": "zh"
 }
 ```
 
+### Config fields
+
+- `balanceEndpoint`: platform API URL
+- `method`: `GET` / `POST` (default: `GET`)
+- `auth`:
+  - `{ "type": "bearer" }` (default) → `Authorization: Bearer <apiKey>`
+  - `{ "type": "header", "headerName": "X-Api-Key" }`
+  - `{ "type": "none" }`
+- `balancePath`: response JSON path (supports `a.b[0].c`)
+- `currencyPath`: optional JSON path for currency (e.g. `balance_infos[0].currency`)
+
 ### 3. Or use environment variables
 
 ```bash
-export KIMI_API_KEY="your-key"
+export AI_BALANCE_DEEPSEEK_API_KEY="your-key"
+
+# Supported aliases:
 export DEEPSEEK_API_KEY="your-key"
+export ZHIPU_API_KEY="your-key"
+export BIGMODEL_API_KEY="your-key"
+export KIMI_API_KEY="your-key"
+export MOONSHOT_API_KEY="your-key"
+export DASHSCOPE_API_KEY="your-key"
+export MINIMAX_API_KEY="your-key"
+export DOUBAO_API_KEY="your-key"
 ```
 
 ## Usage
@@ -91,6 +123,12 @@ ai-balance check --config ~/.config.json
 # Set language
 ai-balance check --lang en
 
+# Output JSON
+ai-balance check --json
+
+# Include raw response (debug)
+ai-balance check --raw
+
 # Show help
 ai-balance --help
 ```
@@ -101,68 +139,51 @@ ai-balance --help
 $ ai-balance check
 查询余额中...
 
-Success - Moonshot AI (Kimi): 1000000 tokens
-Success - DeepSeek: 500000 tokens
-
-Currency: CNY
-
-$ ai-balance check --platform kimi
-Checking balance...
-
-Success - Moonshot AI (Kimi): 1000000 tokens
+$ ai-balance check --platform deepseek --json
+{
+  "timestamp": "2026-02-07T00:00:00.000Z",
+  "language": "zh",
+  "results": [
+    {
+      "platform": "deepseek",
+      "name": "DeepSeek",
+      "ok": true,
+      "value": 0,
+      "unit": null,
+      "currency": "CNY"
+    }
+  ]
+}
 
 $ ai-balance check --lang en
 Checking balance...
 
-Success - Moonshot AI (Kimi): 1000000 tokens
+Success - DeepSeek: 0 CNY
 ```
 
 ## Development
 
-### Add new platform support
+### Add new platform support (no code needed)
 
-1. Add platform config to `config.example.json`
-2. Add API handler in `index.js`:
-
-```javascript
-yourPlatform: async (config) => {
-  if (!config.platforms.yourPlatform.apiKey) {
-    throw new Error(i18n[lang].noKey);
-  }
-  
-  try {
-    const response = await axios.get('your-api-endpoint', {
-      headers: {
-        'Authorization': `Bearer ${config.platforms.yourPlatform.apiKey}`
-      }
-    });
-    return { balance: response.data.balance, unit: 'tokens' };
-  } catch (error) {
-    throw new Error(`API error: ${error.message}`);
-  }
-}
-```
-
-3. Update supported platforms table in README.md
+1. Add a new platform entry in `config.example.json`
+2. Fill `balanceEndpoint` + `auth` + `balancePath`
+3. Run with `--raw` once to find the correct JSON path, then set `balancePath`
 
 ## API Endpoints
 
-**Implemented:**
-- Kimi: `https://api.moonshot.cn/v1/user/info`
+**Default:**
 - DeepSeek: `https://api.deepseek.com/user/balance`
+- Zhipu: `https://open.bigmodel.cn/api/paas/v4/usage`
 
-**Need implementation:**
-- Qwen (通义千问): TBA
-- Doubao: TBA
-- MiniMax: TBA
-- Zhipu AI: TBA
+**Config required:**
+- Qwen / Doubao / Kimi / MiniMax: set `balanceEndpoint` + `balancePath` in your config
 
 ## File Size
 
 - `package.json`: ~500 bytes
-- `index.js`: ~7 KB
+- `index.js`: ~17 KB
 - `config.example.json`: ~1 KB
-- **Total**: ~9 KB
+- **Total**: ~19 KB
 
 ## Dependencies
 
@@ -179,12 +200,9 @@ Wangcai (旺财)
 ## Roadmap
 
 - [x] Basic CLI structure
-- [x] Kimi balance check
 - [x] DeepSeek balance check
-- [ ] Qwen API integration
-- [ ] Doubao API integration
-- [ ] MiniMax API integration
-- [ ] Zhipu AI API integration
+- [x] Config-driven balance extraction (`balancePath`)
+- [x] `--json` / `--raw` output
 - [ ] Balance history tracking
 - [ ] Export to CSV/JSON
 - [ ] Desktop GUI version
