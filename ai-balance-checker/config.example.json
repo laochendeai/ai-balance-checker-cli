@@ -3,7 +3,7 @@
     "qwen": {
       "name": "通义千问",
       "apiKey": "",
-      "balanceEndpoint": "",
+      "balanceEndpoint": "https://dashscope.aliyuncs.com/api/v1/user/stats",
       "unit": "tokens",
       "currency": "CNY"
     },
@@ -17,14 +17,14 @@
     "kimi": {
       "name": "Moonshot AI (Kimi)",
       "apiKey": "",
-      "balanceEndpoint": "",
+      "balanceEndpoint": "https://api.moonshot.cn/v1/user/info",
       "unit": "tokens",
       "currency": "CNY"
     },
     "deepseek": {
       "name": "DeepSeek",
       "apiKey": "",
-      "balanceEndpoint": "",
+      "balanceEndpoint": "https://api.deepseek.com/user/balance",
       "unit": "tokens",
       "currency": "CNY"
     },
