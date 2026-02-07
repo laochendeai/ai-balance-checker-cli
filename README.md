@@ -1,28 +1,31 @@
 # AI Balance Checker
 
-Lightweight CLI tool for checking account balances across multiple AI platforms.
+Lightweight CLI + Windows floating window for showing **plan / token usage / balance** across multiple AI platforms.
 
 ## Features
 
 ✅ Multi-platform support (Qwen, Doubao, Kimi, DeepSeek, MiniMax, Zhipu AI)
 ✅ Bilingual interface (Chinese/English)
-✅ Minimal dependencies (only axios)
+✅ Minimal dependencies (**no runtime deps**)
 ✅ Lightweight design (small release size)
 ✅ Config file support
 ✅ Environment variable support
 ✅ Clear error messages
 ✅ Optional JSON / raw output for scripting & debugging
+✅ Chinese interactive menu (`ai-balance menu`)
+✅ Windows GUI: floating topmost window + tray menu (`ai-balance gui`)
+✅ Terminal spinner (marquee-style progress), disable with `--no-spinner`
 
 ## Supported Platforms
 
 | Platform | Name | Status |
 |----------|------|--------|
-| deepseek | DeepSeek | 🟢 Default endpoint + default parser |
-| zhipu | 智谱AI | 🟡 Default endpoint (need `balancePath`) |
-| kimi | Moonshot AI (Kimi) | 🟡 Need `balanceEndpoint` + `balancePath` |
-| qwen | 通义千问 | 🟡 Need `balanceEndpoint` + `balancePath` |
-| doubao | 豆包 | 🟡 Need `balanceEndpoint` + `balancePath` |
-| minimax | MiniMax | 🟡 Need `balanceEndpoint` + `balancePath` |
+| deepseek | DeepSeek | 🟢 Default `balance` endpoint + fields |
+| zhipu | 智谱AI | 🟡 Default `usage` endpoint (configure field paths) |
+| kimi | Moonshot AI (Kimi) | 🟡 Configure endpoints + field paths |
+| qwen | 通义千问 | 🟡 Configure endpoints + field paths |
+| doubao | 豆包 | 🟡 Configure endpoints + field paths |
+| minimax | MiniMax | 🟡 Configure endpoints + field paths |
 
 ## Installation
 
@@ -70,11 +73,20 @@ cp config.example.json config.json
     "deepseek": {
       "name": "DeepSeek",
       "apiKey": "your-deepseek-api-key",
-      "balanceEndpoint": "https://api.deepseek.com/user/balance",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "balance_infos[0].total_balance",
-      "currencyPath": "balance_infos[0].currency"
+      "metrics": {
+        "balance": {
+          "endpoint": "https://api.deepseek.com/user/balance",
+          "method": "GET",
+          "fields": [
+            {
+              "key": "balance",
+              "path": "balance_infos[0].total_balance",
+              "currencyPath": "balance_infos[0].currency"
+            }
+          ]
+        }
+      }
     }
   },
   "language": "zh"
@@ -83,14 +95,21 @@ cp config.example.json config.json
 
 ### Config fields
 
-- `balanceEndpoint`: platform API URL
-- `method`: `GET` / `POST` (default: `GET`)
-- `auth`:
+- Platform-level:
+  - `apiKey`
+  - `auth`:
   - `{ "type": "bearer" }` (default) → `Authorization: Bearer <apiKey>`
   - `{ "type": "header", "headerName": "X-Api-Key" }`
   - `{ "type": "none" }`
-- `balancePath`: response JSON path (supports `a.b[0].c`)
-- `currencyPath`: optional JSON path for currency (e.g. `balance_infos[0].currency`)
+- `metrics` (recommended):
+  - Each metric has:
+    - `endpoint`, `method`, `auth` (optional override), `headers`, `query`, `body`, `timeoutMs`
+    - `fields`: array of `{ key, path, unit?, currency?, currencyPath? }`
+  - Supported JSON path syntax: `a.b[0].c`
+
+### Legacy config (still supported)
+
+Old keys like `balanceEndpoint` / `balancePath` / `currencyPath` still work (treated as `metrics.balance`).
 
 ### 3. Or use environment variables
 
@@ -129,6 +148,15 @@ ai-balance check --json
 # Include raw response (debug)
 ai-balance check --raw
 
+# Disable spinner/progress (CI / piping)
+ai-balance check --no-spinner
+
+# Chinese interactive menu
+ai-balance menu
+
+# Windows GUI (topmost window + tray)
+ai-balance gui
+
 # Show help
 ai-balance --help
 ```
@@ -137,7 +165,7 @@ ai-balance --help
 
 ```bash
 $ ai-balance check
-查询余额中...
+查询中...
 
 $ ai-balance check --platform deepseek --json
 {
@@ -148,17 +176,28 @@ $ ai-balance check --platform deepseek --json
       "platform": "deepseek",
       "name": "DeepSeek",
       "ok": true,
-      "value": 0,
-      "unit": null,
-      "currency": "CNY"
+      "metrics": {
+        "balance": {
+          "ok": true,
+          "fields": {
+            "balance": {
+              "ok": true,
+              "value": 0,
+              "unit": null,
+              "currency": "CNY"
+            }
+          }
+        }
+      }
     }
   ]
 }
 
 $ ai-balance check --lang en
-Checking balance...
+Checking...
 
-Success - DeepSeek: 0 CNY
+Success - DeepSeek
+  [Balance] Balance: 0 CNY
 ```
 
 ## Development
@@ -166,28 +205,36 @@ Success - DeepSeek: 0 CNY
 ### Add new platform support (no code needed)
 
 1. Add a new platform entry in `config.example.json`
-2. Fill `balanceEndpoint` + `auth` + `balancePath`
-3. Run with `--raw` once to find the correct JSON path, then set `balancePath`
+2. Fill `metrics.<plan|usage|balance>.endpoint`
+3. Run once with `--raw` to inspect the response
+4. Set each `fields[].path` (JSON path)
 
 ## API Endpoints
 
 **Default:**
 - DeepSeek: `https://api.deepseek.com/user/balance`
-- Zhipu: `https://open.bigmodel.cn/api/paas/v4/usage`
+- Zhipu (usage): `https://open.bigmodel.cn/api/paas/v4/usage`
 
 **Config required:**
-- Qwen / Doubao / Kimi / MiniMax: set `balanceEndpoint` + `balancePath` in your config
+- Qwen / Doubao / Kimi / MiniMax: set `metrics.*.endpoint` + `fields[].path` in your config
+
+## Windows GUI
+
+- Script version: `npm run gui:win` or `ai-balance gui`
+- Build exe (requires `ps2exe`): `npm run build:win-exe`
+- Pin to taskbar: right-click the generated `ai-balance-gui.exe` → Pin to taskbar
+
+Note: GUI calls the CLI (`ai-balance check --json`) to fetch data.
 
 ## File Size
 
 - `package.json`: ~500 bytes
-- `index.js`: ~17 KB
-- `config.example.json`: ~1 KB
-- **Total**: ~19 KB
+- `index.js`: ~35 KB
+- `config.example.json`: ~2 KB
 
 ## Dependencies
 
-- axios: ^1.6.0 (HTTP client)
+- None (uses Node built-in `http/https`)
 
 ## License
 
@@ -203,6 +250,8 @@ Wangcai (旺财)
 - [x] DeepSeek balance check
 - [x] Config-driven balance extraction (`balancePath`)
 - [x] `--json` / `--raw` output
+- [x] Multi-metric support (plan / usage / balance)
+- [x] Chinese menu + spinner
+- [x] Windows floating GUI + tray
 - [ ] Balance history tracking
 - [ ] Export to CSV/JSON
-- [ ] Desktop GUI version
