@@ -1,0 +1,47 @@
+{
+  "platforms": {
+    "qwen": {
+      "name": "通义千问",
+      "apiKey": "",
+      "balanceEndpoint": "https://dashscope.aliyuncs.com/api/v1/user/stats",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "doubao": {
+      "name": "豆包",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "kimi": {
+      "name": "Moonshot AI (Kimi)",
+      "apiKey": "",
+      "balanceEndpoint": "https://api.moonshot.cn/v1/user/info",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "apiKey": "",
+      "balanceEndpoint": "https://api.deepseek.com/user/balance",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "apiKey": "",
+      "balanceEndpoint": "",
+      "unit": "tokens",
+      "currency": "CNY"
+    },
+    "zhipu": {
+      "name": "智谱AI (ZAI)",
+      "apiKey": "",
+      "balanceEndpoint": "https://open.bigmodel.cn/api/paas/v4/usage",
+      "unit": "tokens",
+      "currency": "CNY"
+    }
+  },
+  "language": "zh"
+}
