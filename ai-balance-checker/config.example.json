@@ -3,63 +3,101 @@
     "qwen": {
       "name": "通义千问",
       "apiKey": "",
-      "balanceEndpoint": "",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "",
-      "unit": "tokens",
-      "currency": "CNY"
+      "metrics": {
+        "plan": { "endpoint": "", "method": "GET", "fields": [{ "key": "plan_name", "path": "" }] },
+        "usage": {
+          "endpoint": "",
+          "method": "GET",
+          "fields": [
+            { "key": "used_tokens", "path": "", "unit": "tokens" },
+            { "key": "limit_tokens", "path": "", "unit": "tokens" },
+            { "key": "remain_tokens", "path": "", "unit": "tokens" },
+            { "key": "period", "path": "" }
+          ]
+        },
+        "balance": { "endpoint": "", "method": "GET", "fields": [{ "key": "balance", "path": "", "currency": "CNY" }] }
+      }
     },
     "doubao": {
       "name": "豆包",
       "apiKey": "",
-      "balanceEndpoint": "",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "",
-      "unit": "tokens",
-      "currency": "CNY"
+      "metrics": {
+        "plan": { "endpoint": "", "method": "GET", "fields": [{ "key": "plan_name", "path": "" }] },
+        "usage": {
+          "endpoint": "",
+          "method": "GET",
+          "fields": [
+            { "key": "used_tokens", "path": "", "unit": "tokens" },
+            { "key": "limit_tokens", "path": "", "unit": "tokens" },
+            { "key": "remain_tokens", "path": "", "unit": "tokens" },
+            { "key": "period", "path": "" }
+          ]
+        },
+        "balance": { "endpoint": "", "method": "GET", "fields": [{ "key": "balance", "path": "", "currency": "CNY" }] }
+      }
     },
     "kimi": {
       "name": "Moonshot AI (Kimi)",
       "apiKey": "",
-      "balanceEndpoint": "https://api.moonshot.cn/v1/user/info",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "",
-      "unit": "tokens",
-      "currency": "CNY"
+      "metrics": {
+        "balance": {
+          "endpoint": "https://api.moonshot.cn/v1/users/me/balance",
+          "method": "GET",
+          "fields": [{ "key": "balance", "path": "data.available_balance", "currency": "CNY" }]
+        }
+      }
     },
     "deepseek": {
       "name": "DeepSeek",
       "apiKey": "",
-      "balanceEndpoint": "https://api.deepseek.com/user/balance",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "balance_infos[0].total_balance",
-      "currencyPath": "balance_infos[0].currency",
-      "unit": "",
-      "currency": ""
+      "metrics": {
+        "balance": {
+          "endpoint": "https://api.deepseek.com/user/balance",
+          "method": "GET",
+          "fields": [
+            {
+              "key": "balance",
+              "path": "balance_infos[0].total_balance",
+              "currencyPath": "balance_infos[0].currency"
+            }
+          ]
+        }
+      }
     },
     "minimax": {
       "name": "MiniMax",
       "apiKey": "",
-      "balanceEndpoint": "",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "",
-      "unit": "tokens",
-      "currency": "CNY"
+      "metrics": {
+        "plan": { "endpoint": "", "method": "GET", "fields": [{ "key": "plan_name", "path": "" }] },
+        "usage": {
+          "endpoint": "",
+          "method": "GET",
+          "fields": [
+            { "key": "used_tokens", "path": "", "unit": "tokens" },
+            { "key": "limit_tokens", "path": "", "unit": "tokens" },
+            { "key": "remain_tokens", "path": "", "unit": "tokens" },
+            { "key": "period", "path": "" }
+          ]
+        },
+        "balance": { "endpoint": "", "method": "GET", "fields": [{ "key": "balance", "path": "", "currency": "CNY" }] }
+      }
     },
     "zhipu": {
       "name": "智谱AI (ZAI)",
       "apiKey": "",
-      "balanceEndpoint": "https://open.bigmodel.cn/api/paas/v4/usage",
-      "method": "GET",
       "auth": { "type": "bearer" },
-      "balancePath": "",
-      "unit": "tokens",
-      "currency": "CNY"
+      "metrics": {
+        "usage": {
+          "endpoint": "https://open.bigmodel.cn/api/paas/v4/usage",
+          "method": "GET",
+          "fields": []
+        }
+      }
     }
   },
   "language": "zh"

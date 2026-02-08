@@ -1,8 +1,13 @@
 # Config file with API keys
 config.json
+.env
+.env.*
 
 # Dependencies
 node_modules/
+
+# Build outputs
+dist/
 
 # Logs
 *.log
