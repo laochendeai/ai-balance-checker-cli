@@ -18,7 +18,7 @@
 |---|---|---|
 | deepseek | DeepSeek | 内置 `balance` endpoint + 字段路径 |
 | kimi | Moonshot / Kimi | 内置 `balance` endpoint + 字段路径 |
-| zhipu | 智谱AI | 内置 `usage` endpoint（字段路径需用 `--raw` 自行确认后配置） |
+| zhipu | 智谱AI | 内置 `usage` endpoint（Coding 端点优先，自动回退 open 端点） |
 | qwen | 通义千问 | 需要自行配置（部分平台可能无公开“余额/用量”API，或需要 AK/SK 签名） |
 | doubao | 豆包 | 需要自行配置（可能需要 AK/SK 签名） |
 | minimax | MiniMax | 需要自行配置（可能需要 AK/SK 签名） |
@@ -118,7 +118,7 @@ cp config.example.json config.json
     - `{ "type": "none" }`
 - `metrics`：
   - 每个 metric（如 `plan/usage/balance`）可配置：
-    - `endpoint`, `method`, `auth`（可覆盖平台级）, `headers`, `query`, `body`, `timeoutMs`
+    - `endpoint`, `fallbackEndpoints`, `method`, `auth`（可覆盖平台级）, `headers`, `query`, `body`, `timeoutMs`
     - `fields`: `{ key, path, unit?, currency?, currencyPath? }[]`
 - `path` 支持 JSON 路径：`a.b[0].c` / `$.a.b[0].c`
 
@@ -131,6 +131,26 @@ cp config.example.json config.json
 - `zhipu`
 
 也就是说，这三个平台你可以不写 `metrics`，程序会自动使用内置查询配置。
+
+其中 `zhipu` 默认策略为：先请求 Coding 端点 `https://open.bigmodel.cn/api/coding/paas/v4/usage`，失败后自动回退到 open 端点 `https://open.bigmodel.cn/api/paas/v4/usage`。
+
+如果你需要自定义回退列表，可在 metric 中配置：
+
+```json
+{
+  "platforms": {
+    "zhipu": {
+      "metrics": {
+        "usage": {
+          "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/usage",
+          "fallbackEndpoints": ["https://open.bigmodel.cn/api/paas/v4/usage"],
+          "fields": []
+        }
+      }
+    }
+  }
+}
+```
 
 ### 配置兼容性（重要）
 
@@ -203,6 +223,16 @@ AI_BALANCE_FORCE_IPV4="1"
 # 全局默认超时（毫秒），可按需增大
 AI_BALANCE_TIMEOUT_MS="60000"
 ```
+
+排查智谱端点命中情况时，建议加 `--raw`：
+
+```bash
+ai-balance check --platform zhipu --raw
+```
+
+`--raw` 输出里会包含：
+- `endpointUsed`：本次成功命中的端点
+- `attemptedEndpoints`：本次尝试过的端点顺序
 
 ## 使用方法（CLI）
 

@@ -162,6 +162,136 @@ async function main() {
     assert.strictEqual(result.currency, 'CNY');
   });
 
+  await run('fetchPlatformResult zhipu defaults to coding endpoint first', async () => {
+    const calls = [];
+    __setHttpClientForTests({
+      requestJson: async ({ url }) => {
+        calls.push(url);
+        return { status: 200, data: { used: 1 } };
+      }
+    });
+
+    const config = {
+      language: 'zh',
+      platforms: {
+        zhipu: {
+          name: '智谱AI (ZAI)',
+          apiKey: 'test-key',
+          auth: { type: 'bearer' }
+        }
+      }
+    };
+
+    const result = await fetchPlatformResult('zhipu', config, { lang: 'zh', includeRaw: true });
+    assert.strictEqual(result.ok, true);
+    assert.deepStrictEqual(calls, ['https://open.bigmodel.cn/api/coding/paas/v4/usage']);
+    assert.strictEqual(result.metrics.usage.endpointUsed, 'https://open.bigmodel.cn/api/coding/paas/v4/usage');
+    assert.deepStrictEqual(result.metrics.usage.attemptedEndpoints, ['https://open.bigmodel.cn/api/coding/paas/v4/usage']);
+  });
+
+  await run('fetchPlatformResult zhipu falls back from coding to open endpoint', async () => {
+    const calls = [];
+    __setHttpClientForTests({
+      requestJson: async ({ url }) => {
+        calls.push(url);
+        if (url === 'https://open.bigmodel.cn/api/coding/paas/v4/usage') {
+          return { status: 404, data: { error: 'not found' } };
+        }
+        if (url === 'https://open.bigmodel.cn/api/paas/v4/usage') {
+          return { status: 200, data: { used: 10 } };
+        }
+        return { status: 500, data: { error: 'unexpected' } };
+      }
+    });
+
+    const config = {
+      language: 'zh',
+      platforms: {
+        zhipu: {
+          name: '智谱AI (ZAI)',
+          apiKey: 'test-key',
+          auth: { type: 'bearer' }
+        }
+      }
+    };
+
+    const result = await fetchPlatformResult('zhipu', config, { lang: 'zh', includeRaw: true });
+    assert.strictEqual(result.ok, true);
+    assert.deepStrictEqual(calls, ['https://open.bigmodel.cn/api/coding/paas/v4/usage', 'https://open.bigmodel.cn/api/paas/v4/usage']);
+    assert.strictEqual(result.metrics.usage.endpointUsed, 'https://open.bigmodel.cn/api/paas/v4/usage');
+    assert.deepStrictEqual(result.metrics.usage.attemptedEndpoints, [
+      'https://open.bigmodel.cn/api/coding/paas/v4/usage',
+      'https://open.bigmodel.cn/api/paas/v4/usage'
+    ]);
+  });
+
+  await run('fetchPlatformResult returns clear error when all fallback endpoints fail', async () => {
+    __setHttpClientForTests({
+      requestJson: async ({ url }) => {
+        if (url === 'https://open.bigmodel.cn/api/coding/paas/v4/usage') {
+          return { status: 401, data: { error: 'unauthorized' } };
+        }
+        if (url === 'https://open.bigmodel.cn/api/paas/v4/usage') {
+          throw new Error('Request timeout');
+        }
+        return { status: 500, data: {} };
+      }
+    });
+
+    const config = {
+      language: 'zh',
+      platforms: {
+        zhipu: {
+          name: '智谱AI (ZAI)',
+          apiKey: 'test-key',
+          auth: { type: 'bearer' }
+        }
+      }
+    };
+
+    const result = await fetchPlatformResult('zhipu', config, { lang: 'zh', includeRaw: true });
+    assert.strictEqual(result.ok, false);
+    assert.ok(String(result.error).includes('attempted: https://open.bigmodel.cn/api/coding/paas/v4/usage, https://open.bigmodel.cn/api/paas/v4/usage'));
+    assert.deepStrictEqual(result.metrics.usage.attemptedEndpoints, [
+      'https://open.bigmodel.cn/api/coding/paas/v4/usage',
+      'https://open.bigmodel.cn/api/paas/v4/usage'
+    ]);
+  });
+
+  await run('fetchPlatformResult uses explicit endpoint without fallback when not configured', async () => {
+    const calls = [];
+    __setHttpClientForTests({
+      requestJson: async ({ url }) => {
+        calls.push(url);
+        return { status: 200, data: { data: { used: 3 } } };
+      }
+    });
+
+    const config = {
+      language: 'zh',
+      platforms: {
+        zhipu: {
+          name: '智谱AI (ZAI)',
+          apiKey: 'test-key',
+          auth: { type: 'bearer' },
+          metrics: {
+            usage: {
+              endpoint: 'https://example.com/custom-zhipu-usage',
+              method: 'GET',
+              fields: []
+            }
+          }
+        }
+      }
+    };
+
+    const result = await fetchPlatformResult('zhipu', config, { lang: 'zh', includeRaw: true });
+    assert.strictEqual(result.ok, true);
+    assert.deepStrictEqual(calls, ['https://example.com/custom-zhipu-usage']);
+    assert.strictEqual(result.metrics.usage.endpointUsed, 'https://example.com/custom-zhipu-usage');
+    assert.deepStrictEqual(result.metrics.usage.attemptedEndpoints, ['https://example.com/custom-zhipu-usage']);
+  });
+
   await run('fetchPlatformResult requires metrics for qwen', async () => {
     __setHttpClientForTests({
       requestJson: async () => {
@@ -266,6 +396,47 @@ async function main() {
     assert.strictEqual(result.metrics.balance.fields.balance.value, 12.5);
     assert.strictEqual(result.metrics.balance.fields.balance.currency, 'CNY');
     assert.deepStrictEqual(result.metrics.plan.raw, { data: { plan: { name: 'Pro' } } });
+  });
+
+  await run('loadConfig rejects non-array fallbackEndpoints', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-balance-fallback-'));
+    const oldCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      fs.writeFileSync(
+        path.join(dir, 'config.json'),
+        JSON.stringify(
+          {
+            language: 'zh',
+            platforms: {
+              zhipu: {
+                name: '智谱AI',
+                apiKey: 'k',
+                metrics: {
+                  usage: {
+                    endpoint: 'https://open.bigmodel.cn/api/coding/paas/v4/usage',
+                    fallbackEndpoints: 'https://open.bigmodel.cn/api/paas/v4/usage',
+                    fields: []
+                  }
+                }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        'utf8'
+      );
+
+      assert.throws(() => loadConfig(null, 'zh'), /fallbackEndpoints/);
+    } finally {
+      process.chdir(oldCwd);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 }
 

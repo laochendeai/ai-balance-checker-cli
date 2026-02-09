@@ -294,7 +294,8 @@ const PLATFORM_DEFAULTS = {
     auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' },
     metrics: {
       usage: {
-        endpoint: 'https://open.bigmodel.cn/api/paas/v4/usage',
+        endpoint: 'https://open.bigmodel.cn/api/coding/paas/v4/usage',
+        fallbackEndpoints: ['https://open.bigmodel.cn/api/paas/v4/usage'],
         method: 'GET',
         fields: []
       }
@@ -351,6 +352,19 @@ function validatePlatformConfig(platformKey, platformConfig, lang) {
 
     if (Object.prototype.hasOwnProperty.call(metricConfig, 'fields') && !Array.isArray(metricConfig.fields)) {
       return `${i18n[lang].invalidMetricConfig}: ${metricPath}.fields`;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(metricConfig, 'fallbackEndpoints')) {
+      if (!Array.isArray(metricConfig.fallbackEndpoints)) {
+        return `${i18n[lang].invalidMetricConfig}: ${metricPath}.fallbackEndpoints`;
+      }
+
+      for (let fallbackIndex = 0; fallbackIndex < metricConfig.fallbackEndpoints.length; fallbackIndex++) {
+        const endpoint = metricConfig.fallbackEndpoints[fallbackIndex];
+        if (typeof endpoint !== 'string') {
+          return `${i18n[lang].invalidMetricConfig}: ${metricPath}.fallbackEndpoints[${fallbackIndex}]`;
+        }
+      }
     }
 
     if (Array.isArray(metricConfig.fields)) {
@@ -446,6 +460,22 @@ function normalizeEndpointFromConfig(metricConfig) {
   return '';
 }
 
+function normalizeFallbackEndpointsFromConfig(metricConfig) {
+  if (!metricConfig || typeof metricConfig !== 'object') return [];
+  if (!Array.isArray(metricConfig.fallbackEndpoints)) return [];
+
+  const seen = new Set();
+  const endpoints = [];
+  for (const item of metricConfig.fallbackEndpoints) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    endpoints.push(trimmed);
+  }
+  return endpoints;
+}
+
 function hasAnyEndpointConfiguredForPlatform(platformConfig) {
   if (!isPlainObject(platformConfig)) return false;
   const platformKey = String(platformConfig.key || '').toLowerCase();
@@ -456,6 +486,8 @@ function hasAnyEndpointConfiguredForPlatform(platformConfig) {
     if (!isPlainObject(metricConfig)) return true;
     const endpoint = normalizeEndpointFromConfig(metricConfig);
     if (endpoint) return true;
+    const fallbackEndpoints = normalizeFallbackEndpointsFromConfig(metricConfig);
+    if (fallbackEndpoints.length > 0) return true;
   }
 
   return false;
@@ -832,12 +864,20 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
   const effectiveMetric = mergeMetricConfig(effectivePlatform, metricConfig);
   const metricName = (metricConfig && metricConfig.name) || metricId;
   const endpoint = normalizeEndpointFromConfig(effectiveMetric);
+  const fallbackEndpoints = normalizeFallbackEndpointsFromConfig(effectiveMetric);
+  const candidateEndpoints = [];
+  const seenEndpoints = new Set();
+  for (const item of [endpoint, ...fallbackEndpoints]) {
+    if (!item || seenEndpoints.has(item)) continue;
+    seenEndpoints.add(item);
+    candidateEndpoints.push(item);
+  }
   const envTimeoutMsRaw = process.env.AI_BALANCE_TIMEOUT_MS;
   const envTimeoutMs = envTimeoutMsRaw !== undefined ? Number(envTimeoutMsRaw) : NaN;
   const defaultTimeoutMs = Number.isFinite(envTimeoutMs) && envTimeoutMs > 0 ? envTimeoutMs : 15000;
   const timeoutMs = typeof effectiveMetric.timeoutMs === 'number' ? effectiveMetric.timeoutMs : defaultTimeoutMs;
 
-  if (!endpoint) {
+  if (candidateEndpoints.length === 0) {
     const configHint = `platforms.${platformKey}.metrics.${metricId}.endpoint`;
     return { metric: metricId, name: metricName, ok: false, code: 'missing_endpoint', error: `${i18n[lang].missingEndpoint}: ${configHint}` };
   }
@@ -851,96 +891,130 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
 
   if (headers.Accept === undefined) headers.Accept = 'application/json';
 
-  try {
-    const response = await httpClient.requestJson({
-      method: effectiveMetric.method || 'GET',
-      url: endpoint,
-      headers,
-      query: effectiveMetric.query,
-      body: effectiveMetric.body,
-      timeoutMs
-    });
+  const method = effectiveMetric.method || 'GET';
+  const attemptedEndpoints = [];
+  const attemptErrors = [];
 
-    const rawData = response.data;
+  for (const targetEndpoint of candidateEndpoints) {
+    attemptedEndpoints.push(targetEndpoint);
+    try {
+      const response = await httpClient.requestJson({
+        method,
+        url: targetEndpoint,
+        headers,
+        query: effectiveMetric.query,
+        body: effectiveMetric.body,
+        timeoutMs
+      });
 
-    if (response.status < 200 || response.status >= 300) {
-      const result = { metric: metricId, name: metricName, ok: false, error: `${i18n[lang].httpError}: ${response.status}` };
-      if (includeRaw) result.raw = rawData;
-      return result;
-    }
+      const rawData = response.data;
 
-    const fieldsConfig = Array.isArray(effectiveMetric.fields) ? effectiveMetric.fields : [];
-    if (fieldsConfig.length === 0) {
-      const result = { metric: metricId, name: metricName, ok: true, fields: {}, message: i18n[lang].fieldsNotConfigured };
-      if (includeRaw) result.raw = rawData;
-      return result;
-    }
+      if (response.status < 200 || response.status >= 300) {
+        attemptErrors.push(`${i18n[lang].httpError}: ${response.status} (${targetEndpoint})`);
+        continue;
+      }
 
-    const fields = {};
-    let okFieldCount = 0;
+      const fieldsConfig = Array.isArray(effectiveMetric.fields) ? effectiveMetric.fields : [];
+      if (fieldsConfig.length === 0) {
+        const result = {
+          metric: metricId,
+          name: metricName,
+          ok: true,
+          fields: {},
+          message: i18n[lang].fieldsNotConfigured
+        };
+        if (includeRaw) {
+          result.raw = rawData;
+          result.endpointUsed = targetEndpoint;
+          result.attemptedEndpoints = attemptedEndpoints;
+        }
+        return result;
+      }
 
-    for (const fieldConfig of fieldsConfig) {
-      const fieldKey = (fieldConfig && fieldConfig.key) || null;
-      if (!fieldKey) continue;
+      const fields = {};
+      let okFieldCount = 0;
 
-      const fieldUnit =
-        (fieldConfig && fieldConfig.unit) !== undefined ? fieldConfig.unit : effectiveMetric.unit !== undefined ? effectiveMetric.unit : null;
-      const fieldCurrency =
-        (fieldConfig && fieldConfig.currency) !== undefined
-          ? fieldConfig.currency
-          : effectiveMetric.currency !== undefined
-            ? effectiveMetric.currency
-            : null;
+      for (const fieldConfig of fieldsConfig) {
+        const fieldKey = (fieldConfig && fieldConfig.key) || null;
+        if (!fieldKey) continue;
 
-      const pathStr = fieldConfig && fieldConfig.path ? String(fieldConfig.path) : '';
-      if (!pathStr) {
+        const fieldUnit =
+          (fieldConfig && fieldConfig.unit) !== undefined ? fieldConfig.unit : effectiveMetric.unit !== undefined ? effectiveMetric.unit : null;
+        const fieldCurrency =
+          (fieldConfig && fieldConfig.currency) !== undefined
+            ? fieldConfig.currency
+            : effectiveMetric.currency !== undefined
+              ? effectiveMetric.currency
+              : null;
+
+        const pathStr = fieldConfig && fieldConfig.path ? String(fieldConfig.path) : '';
+        if (!pathStr) {
+          fields[fieldKey] = {
+            ok: true,
+            value: null,
+            unit: fieldUnit || null,
+            currency: fieldCurrency || null,
+            message: i18n[lang].fieldPathNotConfigured
+          };
+          okFieldCount++;
+          continue;
+        }
+
+        let value = extractByPath(rawData, pathStr);
+        if (value === undefined) {
+          fields[fieldKey] = {
+            ok: false,
+            value: null,
+            unit: fieldUnit || null,
+            currency: fieldCurrency || null,
+            error: `${i18n[lang].fieldPathNotFound}: ${pathStr}`
+          };
+          continue;
+        }
+
+        value = toNumberIfPossible(value);
+        const currencyPath = fieldConfig && fieldConfig.currencyPath ? String(fieldConfig.currencyPath) : '';
+        const currencyValue = currencyPath ? extractByPath(rawData, currencyPath) : null;
+
         fields[fieldKey] = {
           ok: true,
-          value: null,
+          value,
           unit: fieldUnit || null,
-          currency: fieldCurrency || null,
-          message: i18n[lang].fieldPathNotConfigured
+          currency: currencyValue !== null && currencyValue !== undefined ? currencyValue : fieldCurrency || null
         };
         okFieldCount++;
-        continue;
       }
 
-      let value = extractByPath(rawData, pathStr);
-      if (value === undefined) {
-        fields[fieldKey] = {
-          ok: false,
-          value: null,
-          unit: fieldUnit || null,
-          currency: fieldCurrency || null,
-          error: `${i18n[lang].fieldPathNotFound}: ${pathStr}`
-        };
-        continue;
-      }
-
-      value = toNumberIfPossible(value);
-      const currencyPath = fieldConfig && fieldConfig.currencyPath ? String(fieldConfig.currencyPath) : '';
-      const currencyValue = currencyPath ? extractByPath(rawData, currencyPath) : null;
-
-      fields[fieldKey] = {
-        ok: true,
-        value,
-        unit: fieldUnit || null,
-        currency: currencyValue !== null && currencyValue !== undefined ? currencyValue : fieldCurrency || null
+      const result = {
+        metric: metricId,
+        name: metricName,
+        ok: okFieldCount > 0,
+        fields
       };
-      okFieldCount++;
+      const totalFields = Object.keys(fields).length;
+      const failedFields = Object.values(fields).filter(f => f && f.ok === false).length;
+      if (totalFields > 0 && failedFields > 0) result.message = `${failedFields}/${totalFields} fields failed`;
+      if (includeRaw) {
+        result.raw = rawData;
+        result.endpointUsed = targetEndpoint;
+        result.attemptedEndpoints = attemptedEndpoints;
+      }
+      return result;
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      attemptErrors.push(`${i18n[lang].requestFailed}: ${message} (${targetEndpoint})`);
     }
-
-    const result = { metric: metricId, name: metricName, ok: okFieldCount > 0, fields };
-    const totalFields = Object.keys(fields).length;
-    const failedFields = Object.values(fields).filter(f => f && f.ok === false).length;
-    if (totalFields > 0 && failedFields > 0) result.message = `${failedFields}/${totalFields} fields failed`;
-    if (includeRaw) result.raw = rawData;
-    return result;
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    const suffix = endpoint ? ` (${endpoint})` : '';
-    return { metric: metricId, name: metricName, ok: false, error: `${i18n[lang].requestFailed}: ${message}${suffix}` };
   }
+
+  const detail = attemptErrors.length > 0 ? `; attempted: ${attemptedEndpoints.join(', ')}` : '';
+  const lastError = attemptErrors.length > 0 ? attemptErrors[attemptErrors.length - 1] : `${i18n[lang].requestFailed}: unknown`;
+  return {
+    metric: metricId,
+    name: metricName,
+    ok: false,
+    error: `${lastError}${detail}`,
+    ...(includeRaw ? { attemptedEndpoints } : {})
+  };
 }
 
 async function fetchPlatformResult(platformKey, config, options) {
