@@ -4,13 +4,16 @@
   "description": "Lightweight AI platform balance checker",
   "main": "index.js",
   "bin": {
-    "ai-balance": "./index.js"
+    "ai-balance": "index.js"
   },
   "scripts": {
     "start": "node index.js",
     "test": "node test/index.test.js",
     "gui:win": "powershell -NoProfile -ExecutionPolicy Bypass -File windows/ai-balance-gui.ps1",
-    "build:win-exe": "powershell -NoProfile -ExecutionPolicy Bypass -File windows/build-exe.ps1"
+    "build:win-exe": "powershell -NoProfile -ExecutionPolicy Bypass -File windows/build-exe.ps1",
+    "headless:test": "node headless-test.js",
+    "headless:simple": "node headless-simple.js",
+    "headless:examples": "node headless-examples.js"
   },
   "keywords": [
     "ai",
@@ -25,5 +28,19 @@
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/laochendeai/ai-balance-checker-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/laochendeai/ai-balance-checker-cli/issues"
+  },
+  "homepage": "https://github.com/laochendeai/ai-balance-checker-cli#readme",
+  "devDependencies": {
+    "playwright": "^1.58.2"
   }
 }
