@@ -122,9 +122,36 @@ cp config.example.json config.json
     - `fields`: `{ key, path, unit?, currency?, currencyPath? }[]`
 - `path` 支持 JSON 路径：`a.b[0].c` / `$.a.b[0].c`
 
-### 旧版配置（仍兼容）
+### 快速配置（只填 API Key）
 
-老版本使用 `balanceEndpoint` / `balancePath` / `currencyPath` 的配置仍可用（会被当作 `metrics.balance` 处理）。建议逐步迁移到 `metrics`，以支持「套餐/用量/余额」三类信息。
+以下平台支持“只填 `apiKey` 即可查询（endpoint/path 自动内置）”：
+
+- `deepseek`
+- `kimi`
+- `zhipu`
+
+也就是说，这三个平台你可以不写 `metrics`，程序会自动使用内置查询配置。
+
+### 配置兼容性（重要）
+
+旧字段（如 `balanceEndpoint` / `balancePath` / `currencyPath`）不再支持，出现时会直接报错并提示迁移路径。
+
+最小迁移目标示例：
+
+```json
+{
+  "platforms": {
+    "deepseek": {
+      "metrics": {
+        "balance": {
+          "endpoint": "https://api.deepseek.com/user/balance",
+          "fields": [{ "key": "balance", "path": "balance_infos[0].total_balance" }]
+        }
+      }
+    }
+  }
+}
+```
 
 ## 环境变量（覆盖 apiKey）
 
@@ -208,7 +235,14 @@ ai-balance check --all
 ai-balance menu
 ```
 
+### 退出码（便于 CI）
+
+- 只要有至少一个平台查询成功：退出码 `0`
+- 所有平台都失败：退出码 `1`
+
 ## Windows 浮动窗口（置顶 + 托盘）
+
+> `gui` 仅支持 Windows。Linux/WSL 下会提示改用 `ai-balance check` 或 `ai-balance check --json`。
 
 ### 启动
 

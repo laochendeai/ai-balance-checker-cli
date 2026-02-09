@@ -35,12 +35,15 @@ const i18n = {
     noSpinnerHelp: '关闭跑马灯/进度提示',
     allHelp: '包含未配置的平台（默认会跳过未配置 endpoint 的平台）',
     missingEndpoint: '未配置 endpoint（接口 URL）',
-    missingBalanceEndpoint: '未配置 balanceEndpoint',
+    metricsRequired: '未配置 metrics',
+    quickConfigHint: '可只填 apiKey 的平台：deepseek、kimi、zhipu；其它平台需配置 metrics',
+    metricsEmpty: 'metrics 不能为空',
+    legacyConfigDetected: '检测到旧版配置字段（不再支持）',
+    migrateConfigHint: '请迁移到 metrics 配置，例如',
+    invalidMetricConfig: 'metric 配置格式错误',
     fieldsNotConfigured: '未配置 fields，无法提取数据',
     fieldPathNotConfigured: '未配置 path，无法提取字段',
     fieldPathNotFound: 'path 未命中响应字段',
-    balancePathNotConfigured: '未配置 balancePath，无法提取余额字段',
-    balancePathNotFound: 'balancePath 未命中响应字段',
     requestFailed: '请求失败',
     httpError: 'HTTP 错误',
     unknownArg: '未知参数',
@@ -56,6 +59,7 @@ const i18n = {
     menuHelp: '打开交互式中文菜单',
     guiHelp: '启动 Windows 浮动窗口（置顶 + 托盘）',
     winOnly: '该命令仅支持 Windows',
+    winOnlyHint: '请改用 `ai-balance check` 或 `ai-balance check --json`',
     skippedPlatforms: '已跳过未配置 endpoint 的平台',
     runAllHint: '如需查看全部平台（包括未配置项），请加 --all'
   },
@@ -78,12 +82,15 @@ const i18n = {
     noSpinnerHelp: 'Disable spinner/progress',
     allHelp: 'Include unconfigured platforms (default skips missing endpoints)',
     missingEndpoint: 'endpoint not configured',
-    missingBalanceEndpoint: 'balanceEndpoint not configured',
+    metricsRequired: 'metrics is required',
+    quickConfigHint: 'Platforms that support API-key-only config: deepseek, kimi, zhipu. Others need metrics.',
+    metricsEmpty: 'metrics cannot be empty',
+    legacyConfigDetected: 'legacy config keys detected (no longer supported)',
+    migrateConfigHint: 'Migrate to metrics config, for example',
+    invalidMetricConfig: 'invalid metric config format',
     fieldsNotConfigured: 'fields not configured; cannot extract data',
     fieldPathNotConfigured: 'path not configured; cannot extract field',
     fieldPathNotFound: 'path not found in response',
-    balancePathNotConfigured: 'balancePath not configured; cannot extract balance',
-    balancePathNotFound: 'balancePath not found in response',
     requestFailed: 'Request failed',
     httpError: 'HTTP error',
     unknownArg: 'Unknown argument',
@@ -99,6 +106,7 @@ const i18n = {
     menuHelp: 'Open interactive menu',
     guiHelp: 'Launch Windows floating window (topmost + tray)',
     winOnly: 'This command is Windows-only',
+    winOnlyHint: 'Use `ai-balance check` or `ai-balance check --json` instead',
     skippedPlatforms: 'Skipped platforms missing endpoint',
     runAllHint: 'Use --all to include them'
   }
@@ -172,8 +180,7 @@ function loadConfig(configPath, langForErrors) {
     try {
       const raw = fs.readFileSync(p, 'utf8');
       const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') throw new Error(i18n[lang].invalidConfig);
-      if (!parsed.platforms || typeof parsed.platforms !== 'object') throw new Error(i18n[lang].invalidConfig);
+      validateConfigSchema(parsed, lang);
       return parsed;
     } catch (error) {
       const message = error && error.message ? error.message : String(error);
@@ -259,26 +266,122 @@ function toNumberIfPossible(value) {
 const PLATFORM_DEFAULTS = {
   deepseek: {
     name: 'DeepSeek',
-    balanceEndpoint: 'https://api.deepseek.com/user/balance',
     method: 'GET',
     auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' },
-    balancePath: 'balance_infos[0].total_balance',
-    currencyPath: 'balance_infos[0].currency'
+    metrics: {
+      balance: {
+        endpoint: 'https://api.deepseek.com/user/balance',
+        method: 'GET',
+        fields: [{ key: 'balance', path: 'balance_infos[0].total_balance', currencyPath: 'balance_infos[0].currency' }]
+      }
+    }
   },
   kimi: {
     name: 'Moonshot AI (Kimi)',
-    balanceEndpoint: 'https://api.moonshot.cn/v1/users/me/balance',
     method: 'GET',
     auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' },
-    balancePath: 'data.available_balance',
-    currency: 'CNY'
+    metrics: {
+      balance: {
+        endpoint: 'https://api.moonshot.cn/v1/users/me/balance',
+        method: 'GET',
+        fields: [{ key: 'balance', path: 'data.available_balance', currency: 'CNY' }]
+      }
+    }
   },
   zhipu: {
     name: '智谱AI (ZAI)',
     method: 'GET',
-    auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' }
+    auth: { type: 'bearer', headerName: 'Authorization', prefix: 'Bearer ' },
+    metrics: {
+      usage: {
+        endpoint: 'https://open.bigmodel.cn/api/paas/v4/usage',
+        method: 'GET',
+        fields: []
+      }
+    }
   }
 };
+
+const API_KEY_ONLY_PLATFORMS = new Set(['deepseek', 'kimi', 'zhipu']);
+
+const LEGACY_PLATFORM_KEYS = ['balanceEndpoint', 'balancePath', 'currencyPath', 'usageEndpoint', 'planEndpoint'];
+const LEGACY_METRIC_KEYS = ['balanceEndpoint', 'url'];
+const LEGACY_FIELD_KEYS = ['balancePath', 'jsonPath', 'currency_path'];
+
+function buildMigrationHint(platformKey) {
+  return `platforms.${platformKey}.metrics.balance.endpoint`;
+}
+
+function buildLegacyConfigError(lang, platformKey, keyPath) {
+  return `${i18n[lang].legacyConfigDetected}: ${keyPath}\n${i18n[lang].migrateConfigHint}: ${buildMigrationHint(platformKey)}`;
+}
+
+function validatePlatformConfig(platformKey, platformConfig, lang) {
+  if (!isPlainObject(platformConfig)) {
+    return `${i18n[lang].invalidConfig}: platforms.${platformKey}`;
+  }
+
+  for (const key of LEGACY_PLATFORM_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(platformConfig, key)) {
+      return buildLegacyConfigError(lang, platformKey, `platforms.${platformKey}.${key}`);
+    }
+  }
+
+  const metricsConfig = buildMetricsConfig(platformKey, platformConfig);
+  if (!isPlainObject(metricsConfig)) {
+    return `${i18n[lang].metricsRequired}: platforms.${platformKey}.metrics\n${i18n[lang].quickConfigHint}`;
+  }
+
+  const metricEntries = Object.entries(metricsConfig);
+  if (metricEntries.length === 0) {
+    return `${i18n[lang].metricsEmpty}: platforms.${platformKey}.metrics`;
+  }
+
+  for (const [metricId, metricConfig] of metricEntries) {
+    const metricPath = `platforms.${platformKey}.metrics.${metricId}`;
+    if (!isPlainObject(metricConfig)) {
+      return `${i18n[lang].invalidMetricConfig}: ${metricPath}`;
+    }
+
+    for (const key of LEGACY_METRIC_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(metricConfig, key)) {
+        return buildLegacyConfigError(lang, platformKey, `${metricPath}.${key}`);
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(metricConfig, 'fields') && !Array.isArray(metricConfig.fields)) {
+      return `${i18n[lang].invalidMetricConfig}: ${metricPath}.fields`;
+    }
+
+    if (Array.isArray(metricConfig.fields)) {
+      for (let index = 0; index < metricConfig.fields.length; index++) {
+        const field = metricConfig.fields[index];
+        const fieldPath = `${metricPath}.fields[${index}]`;
+        if (!isPlainObject(field)) {
+          return `${i18n[lang].invalidMetricConfig}: ${fieldPath}`;
+        }
+
+        for (const key of LEGACY_FIELD_KEYS) {
+          if (Object.prototype.hasOwnProperty.call(field, key)) {
+            return buildLegacyConfigError(lang, platformKey, `${fieldPath}.${key}`);
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function validateConfigSchema(config, lang) {
+  if (!config || typeof config !== 'object') throw new Error(i18n[lang].invalidConfig);
+  if (!config.platforms || typeof config.platforms !== 'object') throw new Error(i18n[lang].invalidConfig);
+
+  for (const [platformKey, platformConfig] of Object.entries(config.platforms)) {
+    const error = validatePlatformConfig(platformKey, platformConfig, lang);
+    if (error) throw new Error(error);
+  }
+}
 
 function mergePlatformConfig(platformKey, platformConfig) {
   const defaults = PLATFORM_DEFAULTS[platformKey] || {};
@@ -288,6 +391,20 @@ function mergePlatformConfig(platformKey, platformConfig) {
   merged.query = { ...(defaults.query || {}), ...((platformConfig && platformConfig.query) || {}) };
   if (merged.method) merged.method = String(merged.method).toUpperCase();
   return merged;
+}
+
+function cloneMetrics(metrics) {
+  if (!isPlainObject(metrics)) return null;
+  return JSON.parse(JSON.stringify(metrics));
+}
+
+function buildMetricsConfig(platformKey, platformConfig) {
+  const defaults = PLATFORM_DEFAULTS[platformKey] || {};
+  const inputMetrics = isPlainObject(platformConfig && platformConfig.metrics) ? platformConfig.metrics : null;
+
+  if (inputMetrics) return cloneMetrics(inputMetrics);
+  if (API_KEY_ONLY_PLATFORMS.has(platformKey)) return cloneMetrics(defaults.metrics || {});
+  return null;
 }
 
 function buildAuthHeaders(platformConfig, lang) {
@@ -322,7 +439,7 @@ function isPlainObject(value) {
 
 function normalizeEndpointFromConfig(metricConfig) {
   if (!metricConfig || typeof metricConfig !== 'object') return '';
-  const candidates = [metricConfig.endpoint, metricConfig.balanceEndpoint, metricConfig.url];
+  const candidates = [metricConfig.endpoint];
   for (const item of candidates) {
     if (typeof item === 'string' && item.trim()) return item.trim();
   }
@@ -330,20 +447,17 @@ function normalizeEndpointFromConfig(metricConfig) {
 }
 
 function hasAnyEndpointConfiguredForPlatform(platformConfig) {
-  if (!platformConfig || typeof platformConfig !== 'object') return false;
+  if (!isPlainObject(platformConfig)) return false;
+  const platformKey = String(platformConfig.key || '').toLowerCase();
+  const metricConfigs = Object.values(buildMetricsConfig(platformKey, platformConfig) || {});
+  if (metricConfigs.length === 0) return true;
 
-  if (platformConfig.metrics && isPlainObject(platformConfig.metrics)) {
-    for (const metricConfig of Object.values(platformConfig.metrics)) {
-      const endpoint = normalizeEndpointFromConfig(metricConfig);
-      if (endpoint) return true;
-    }
-    if (typeof platformConfig.balanceEndpoint === 'string' && platformConfig.balanceEndpoint.trim()) return true;
-    if (typeof platformConfig.usageEndpoint === 'string' && platformConfig.usageEndpoint.trim()) return true;
-    if (typeof platformConfig.planEndpoint === 'string' && platformConfig.planEndpoint.trim()) return true;
-    return false;
+  for (const metricConfig of metricConfigs) {
+    if (!isPlainObject(metricConfig)) return true;
+    const endpoint = normalizeEndpointFromConfig(metricConfig);
+    if (endpoint) return true;
   }
 
-  if (typeof platformConfig.balanceEndpoint === 'string' && platformConfig.balanceEndpoint.trim()) return true;
   return false;
 }
 
@@ -697,30 +811,6 @@ function mergeMetricConfig(platformEffective, metricConfig) {
   return merged;
 }
 
-function buildLegacyBalanceMetric(effectivePlatform) {
-  return {
-    name: 'balance',
-    endpoint: effectivePlatform.balanceEndpoint || '',
-    method: effectivePlatform.method || 'GET',
-    auth: effectivePlatform.auth,
-    headers: effectivePlatform.headers,
-    query: effectivePlatform.query,
-    body: effectivePlatform.body,
-    timeoutMs: effectivePlatform.timeoutMs,
-    unit: effectivePlatform.unit,
-    currency: effectivePlatform.currency,
-    fields: [
-      {
-        key: 'balance',
-        path: effectivePlatform.balancePath || '',
-        unit: effectivePlatform.unit || null,
-        currency: effectivePlatform.currency || null,
-        currencyPath: effectivePlatform.currencyPath || null
-      }
-    ]
-  };
-}
-
 function orderMetricKeys(keys) {
   const priority = ['plan', 'usage', 'balance'];
   return keys.slice().sort((a, b) => {
@@ -741,16 +831,7 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
 
   const effectiveMetric = mergeMetricConfig(effectivePlatform, metricConfig);
   const metricName = (metricConfig && metricConfig.name) || metricId;
-  let endpoint = normalizeEndpointFromConfig(effectiveMetric);
-  if (!endpoint) {
-    if (metricId === 'balance' && typeof effectivePlatform.balanceEndpoint === 'string' && effectivePlatform.balanceEndpoint.trim()) {
-      endpoint = effectivePlatform.balanceEndpoint.trim();
-    } else if (metricId === 'usage' && typeof effectivePlatform.usageEndpoint === 'string' && effectivePlatform.usageEndpoint.trim()) {
-      endpoint = effectivePlatform.usageEndpoint.trim();
-    } else if (metricId === 'plan' && typeof effectivePlatform.planEndpoint === 'string' && effectivePlatform.planEndpoint.trim()) {
-      endpoint = effectivePlatform.planEndpoint.trim();
-    }
-  }
+  const endpoint = normalizeEndpointFromConfig(effectiveMetric);
   const envTimeoutMsRaw = process.env.AI_BALANCE_TIMEOUT_MS;
   const envTimeoutMs = envTimeoutMsRaw !== undefined ? Number(envTimeoutMsRaw) : NaN;
   const defaultTimeoutMs = Number.isFinite(envTimeoutMs) && envTimeoutMs > 0 ? envTimeoutMs : 15000;
@@ -811,14 +892,7 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
             ? effectiveMetric.currency
             : null;
 
-      let pathStr =
-        fieldConfig && (fieldConfig.path || fieldConfig.balancePath || fieldConfig.jsonPath)
-          ? String(fieldConfig.path || fieldConfig.balancePath || fieldConfig.jsonPath)
-          : '';
-      if (!pathStr && metricId === 'balance' && fieldKey === 'balance') {
-        const legacyPath = effectivePlatform && effectivePlatform.balancePath ? String(effectivePlatform.balancePath).trim() : '';
-        if (legacyPath) pathStr = legacyPath;
-      }
+      const pathStr = fieldConfig && fieldConfig.path ? String(fieldConfig.path) : '';
       if (!pathStr) {
         fields[fieldKey] = {
           ok: true,
@@ -844,14 +918,7 @@ async function fetchMetricResult(platformKey, effectivePlatform, metricId, metri
       }
 
       value = toNumberIfPossible(value);
-      let currencyPath =
-        fieldConfig && (fieldConfig.currencyPath || fieldConfig.currency_path)
-          ? String(fieldConfig.currencyPath || fieldConfig.currency_path)
-          : '';
-      if (!currencyPath && metricId === 'balance' && fieldKey === 'balance') {
-        const legacyCurrencyPath = effectivePlatform && effectivePlatform.currencyPath ? String(effectivePlatform.currencyPath).trim() : '';
-        if (legacyCurrencyPath) currencyPath = legacyCurrencyPath;
-      }
+      const currencyPath = fieldConfig && fieldConfig.currencyPath ? String(fieldConfig.currencyPath) : '';
       const currencyValue = currencyPath ? extractByPath(rawData, currencyPath) : null;
 
       fields[fieldKey] = {
@@ -887,23 +954,22 @@ async function fetchPlatformResult(platformKey, config, options) {
   const effectivePlatform = mergePlatformConfig(platformKey, platformConfig);
   const name = effectivePlatform.name || platformKey;
 
-  let metricsConfig = null;
-  if (platformConfig && isPlainObject(platformConfig.metrics)) metricsConfig = platformConfig.metrics;
-
-  const metrics = {};
-  const metricIds = metricsConfig ? orderMetricKeys(Object.keys(metricsConfig)) : ['balance'];
-
+  const metricsConfig = buildMetricsConfig(platformKey, platformConfig);
   if (!metricsConfig) {
-    const legacyMetric = buildLegacyBalanceMetric(effectivePlatform);
-    if (!legacyMetric.endpoint) {
-      return { platform: platformKey, name, ok: false, error: i18n[lang].missingBalanceEndpoint };
-    }
-    metrics.balance = await fetchMetricResult(platformKey, effectivePlatform, 'balance', legacyMetric, options);
-  } else {
-    for (const metricId of metricIds) {
-      const metricConfig = metricsConfig[metricId];
-      metrics[metricId] = await fetchMetricResult(platformKey, effectivePlatform, metricId, metricConfig, options);
-    }
+    return {
+      platform: platformKey,
+      name,
+      ok: false,
+      error: `${i18n[lang].metricsRequired}: platforms.${platformKey}.metrics (${i18n[lang].quickConfigHint})`,
+      metrics: {}
+    };
+  }
+  const metrics = {};
+  const metricIds = orderMetricKeys(Object.keys(metricsConfig));
+
+  for (const metricId of metricIds) {
+    const metricConfig = metricsConfig[metricId];
+    metrics[metricId] = await fetchMetricResult(platformKey, effectivePlatform, metricId, metricConfig, options);
   }
 
   const okMetrics = Object.values(metrics).filter(m => m && m.ok).length;
@@ -1167,7 +1233,8 @@ async function runCheckAndPrint(config, args, lang) {
     platforms = [args.platform];
   } else if (!args.json && !args.all) {
     for (const key of allPlatforms) {
-      const pcfg = config.platforms && config.platforms[key];
+      const pcfgRaw = config.platforms && config.platforms[key];
+      const pcfg = isPlainObject(pcfgRaw) ? { ...pcfgRaw, key } : pcfgRaw;
       if (hasAnyEndpointConfiguredForPlatform(pcfg)) platforms.push(key);
       else skipped.push(key);
     }
@@ -1249,6 +1316,16 @@ async function runCheckAndPrint(config, args, lang) {
     const output = { timestamp: new Date().toISOString(), language: lang, results };
     console.log(JSON.stringify(output, null, 2));
   }
+
+  const successCount = results.filter(item => item && item.ok).length;
+  const failedCount = results.length - successCount;
+  return {
+    results,
+    totalCount: results.length,
+    successCount,
+    failedCount,
+    allFailed: results.length > 0 && failedCount === results.length
+  };
 }
 
 async function runMenu(config, args, lang) {
@@ -1363,6 +1440,7 @@ async function runMenu(config, args, lang) {
 function launchWindowsGui(args, lang) {
   if (process.platform !== 'win32') {
     console.error(`${i18n[lang].error}: ${i18n[lang].winOnly}`);
+    console.error(i18n[lang].winOnlyHint);
     process.exit(1);
   }
 
@@ -1413,7 +1491,8 @@ async function main() {
   const lang = resolveLang(args.lang, config.language);
 
   if (args.command === 'check') {
-    await runCheckAndPrint(config, args, lang);
+    const summary = await runCheckAndPrint(config, args, lang);
+    if (summary && summary.allFailed) process.exit(1);
     return;
   }
 

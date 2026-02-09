@@ -1,12 +1,6 @@
 const assert = require('assert');
 
-const {
-  extractByPath,
-  parseArgs,
-  fetchPlatformResult,
-  __setHttpClientForTests,
-  shouldUseSpinner
-} = require('../index.js');
+const { extractByPath, parseArgs, fetchPlatformResult, loadConfig, __setHttpClientForTests, shouldUseSpinner } = require('../index.js');
 
 function run(name, fn) {
   try {
@@ -38,17 +32,7 @@ async function main() {
   });
 
   await run('parseArgs parses command + flags', () => {
-    const args = parseArgs([
-      'node',
-      'index.js',
-      'check',
-      '--platform',
-      'deepseek',
-      '--lang',
-      'en',
-      '--json',
-      '--raw'
-    ]);
+    const args = parseArgs(['node', 'index.js', 'check', '--platform', 'deepseek', '--lang', 'en', '--json', '--raw']);
     assert.deepStrictEqual(args, {
       command: 'check',
       platform: 'deepseek',
@@ -77,14 +61,52 @@ async function main() {
     assert.strictEqual(shouldUseSpinner({ json: false, noSpinner: false }, { isTTY: false }), false);
   });
 
-  await run('fetchPlatformResult parses DeepSeek legacy balance shape', async () => {
+  await run('loadConfig rejects legacy platform keys', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-balance-legacy-'));
+    const oldCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      fs.writeFileSync(
+        path.join(dir, 'config.json'),
+        JSON.stringify(
+          {
+            language: 'zh',
+            platforms: {
+              deepseek: {
+                name: 'DeepSeek',
+                apiKey: 'k',
+                balanceEndpoint: 'https://api.deepseek.com/user/balance'
+              }
+            }
+          },
+          null,
+          2
+        ),
+        'utf8'
+      );
+
+      assert.throws(() => loadConfig(null, 'zh'), /旧版配置字段/);
+    } finally {
+      process.chdir(oldCwd);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  await run('fetchPlatformResult supports deepseek with API key only config', async () => {
     __setHttpClientForTests({
-      requestJson: async () => ({
-        status: 200,
-        data: {
-          balance_infos: [{ total_balance: '12.34', currency: 'CNY' }]
-        }
-      })
+      requestJson: async ({ url }) => {
+        assert.strictEqual(url, 'https://api.deepseek.com/user/balance');
+        return {
+          status: 200,
+          data: {
+            balance_infos: [{ total_balance: '12.34', currency: 'CNY' }]
+          }
+        };
+      }
     });
 
     const config = {
@@ -93,10 +115,7 @@ async function main() {
         deepseek: {
           name: 'DeepSeek',
           apiKey: 'test-key',
-          balanceEndpoint: 'https://api.deepseek.com/user/balance',
-          auth: { type: 'bearer' },
-          balancePath: 'balance_infos[0].total_balance',
-          currencyPath: 'balance_infos[0].currency'
+          auth: { type: 'bearer' }
         }
       }
     };
@@ -105,18 +124,10 @@ async function main() {
     assert.strictEqual(result.ok, true);
     assert.strictEqual(result.value, 12.34);
     assert.strictEqual(result.currency, 'CNY');
-    assert.ok(result.metrics);
-    assert.ok(result.metrics.balance);
-    assert.strictEqual(result.metrics.balance.ok, true);
-    assert.strictEqual(result.metrics.balance.fields.balance.ok, true);
-    assert.strictEqual(result.metrics.balance.fields.balance.value, 12.34);
-    assert.strictEqual(result.metrics.balance.fields.balance.currency, 'CNY');
-    assert.deepStrictEqual(result.metrics.balance.raw, {
-      balance_infos: [{ total_balance: '12.34', currency: 'CNY' }]
-    });
+    assert.ok(result.metrics.balance.fields.balance.ok);
   });
 
-  await run('fetchPlatformResult uses Kimi default endpoint + balancePath', async () => {
+  await run('fetchPlatformResult supports kimi with API key only config', async () => {
     let requestedUrl = null;
     __setHttpClientForTests({
       requestJson: async ({ url }) => {
@@ -125,7 +136,7 @@ async function main() {
           status: 200,
           data: {
             code: 0,
-            data: { available_balance: 49.58894, voucher_balance: 46.58893, cash_balance: 3.00001 },
+            data: { available_balance: 49.58894 },
             scode: '0x0',
             status: true
           }
@@ -139,13 +150,7 @@ async function main() {
         kimi: {
           name: 'Moonshot AI (Kimi)',
           apiKey: 'test-key',
-          auth: { type: 'bearer' },
-          metrics: {
-            balance: {
-              endpoint: '',
-              fields: [{ key: 'balance', path: '' }]
-            }
-          }
+          auth: { type: 'bearer' }
         }
       }
     };
@@ -155,12 +160,31 @@ async function main() {
     assert.strictEqual(requestedUrl, 'https://api.moonshot.cn/v1/users/me/balance');
     assert.ok(Math.abs(result.value - 49.58894) < 1e-9);
     assert.strictEqual(result.currency, 'CNY');
-    assert.strictEqual(result.metrics.balance.fields.balance.ok, true);
-    assert.ok(Math.abs(result.metrics.balance.fields.balance.value - 49.58894) < 1e-9);
-    assert.strictEqual(result.metrics.balance.fields.balance.currency, 'CNY');
   });
 
-  await run('fetchPlatformResult errors on missing endpoint', async () => {
+  await run('fetchPlatformResult requires metrics for qwen', async () => {
+    __setHttpClientForTests({
+      requestJson: async () => {
+        throw new Error('should not be called');
+      }
+    });
+
+    const config = {
+      language: 'zh',
+      platforms: {
+        qwen: {
+          name: '通义千问',
+          apiKey: 'x'
+        }
+      }
+    };
+
+    const result = await fetchPlatformResult('qwen', config, { lang: 'zh' });
+    assert.strictEqual(result.ok, false);
+    assert.ok(String(result.error).includes('metrics'));
+  });
+
+  await run('fetchPlatformResult errors on missing endpoint in explicit metric', async () => {
     __setHttpClientForTests({
       requestJson: async () => {
         throw new Error('should not be called');
@@ -173,14 +197,19 @@ async function main() {
         qwen: {
           name: '通义千问',
           apiKey: 'x',
-          balanceEndpoint: ''
+          metrics: {
+            balance: {
+              endpoint: '',
+              fields: [{ key: 'balance', path: 'data.balance' }]
+            }
+          }
         }
       }
     };
 
     const result = await fetchPlatformResult('qwen', config, { lang: 'zh' });
     assert.strictEqual(result.ok, false);
-    assert.ok(String(result.error).includes('balanceEndpoint'));
+    assert.ok(String(result.error).includes('metrics.balance.endpoint'));
   });
 
   await run('fetchPlatformResult supports metrics with multiple fields', async () => {
