@@ -1,0 +1,22 @@
+# Config file with API keys
+config.json
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

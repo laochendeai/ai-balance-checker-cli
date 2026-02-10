@@ -25,32 +25,6 @@
 
 ---
 
-## 项目决策记录（2026-02-09）
-
-### 1. **QR Toolkit** ✅
-- **决策：** 完成并推送修复
-- **状态：** 已推送到 GitHub，Vercel 自动部署
-- **问题：** i18n.js 和 app.mjs 有中文引号语法错误
-- **修复：**
-  - i18n.js: 修复 3 处中文引号为转义英文引号
-  - app.mjs: 修复 10 处中文引号 + 1 处缺少反引号
-- **收益预期：** AdSense 流量变现（月入 $100-2000）
-
-### 2. **AI 客服机器人** ⏸️
-- **决策：** 暂时不推进
-- **原因：** 还没找到明确的商机/市场需求
-- **状态：** 规划暂停，等待市场验证
-
-### 3. **AI 余额查询工具** ❌
-- **决策：** 放弃项目
-- **原因：** 收入潜力低（捐赠/赞助为主），投入产出比不高
-- **已完成：** 
-  - 功能开发完成
-  - 已开源到 GitHub: laochendeai/ai-balance-checker-cli
-  - 支持平台：千问、豆包、Kimi、DeepSeek、MiniMax、智谱AI
-
----
-
 ## 项目讨论：AI 客服机器人
 
 ### 项目方向
@@ -398,27 +372,13 @@ nohup python main.py
 
 ### 已完成项目
 
-- [x] **QR Toolkit Bug 修复** (2026-02-09)
-  - 位置：`https://github.com/laochendeai/qr-toolkit`
-  - 问题：i18n.js 和 app.mjs 语法错误
-  - 修复：13 处中文引号 + 1 处缺少反引号
-  - 状态：已推送到 GitHub，Vercel 自动部署
-  - 网址：https://qr-toolkit.vercel.app/
-
-- [x] **AI 余额查询工具** (2026-02-06，已放弃)
+- [x] **AI 余额查询工具** (2026-02-06)
   - 位置：`/home/ubuntu/.openclaw/workspace/ai-balance-checker/`
-  - GitHub: laochendeai/ai-balance-checker-cli
   - 功能：多平台 AI 账户余额查询
   - 支持平台：千问、豆包、Kimi、DeepSeek、MiniMax、智谱AI
-  - 决策：因收入潜力低而放弃
-
-### 当前项目
-
-- [ ] **QR Toolkit SEO 推广**（进行中）
-  - 目标：通过 Google 搜索获得自然流量
-  - 关键词：qr code generator（月搜索量 538K）
-  - 变现方式：Google AdSense
-  - 下一步：提交到 Google Search Console + 内容营销
+  - 特性：中英文双语界面、轻量级设计
+  - 大小：约 9KB
+  - 状态：已实现 Kimi 和 DeepSeek 查询，其他待接入
 
 ### 近期任务（高优先级）
 

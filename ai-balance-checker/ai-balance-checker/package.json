@@ -1,0 +1,29 @@
+{
+  "name": "ai-balance-checker",
+  "version": "1.0.2",
+  "description": "Lightweight AI platform balance checker",
+  "main": "index.js",
+  "bin": {
+    "ai-balance": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/index.test.js",
+    "gui:win": "powershell -NoProfile -ExecutionPolicy Bypass -File windows/ai-balance-gui.ps1",
+    "build:win-exe": "powershell -NoProfile -ExecutionPolicy Bypass -File windows/build-exe.ps1"
+  },
+  "keywords": [
+    "ai",
+    "balance",
+    "checker",
+    "qwen",
+    "kimi",
+    "deepseek",
+    "minimax"
+  ],
+  "author": "wangcai",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

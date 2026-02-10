@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows-gui:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ps2exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try { Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted } catch {}
+          Install-Module ps2exe -Scope CurrentUser -Force
+
+      - name: Build ai-balance-gui.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./windows/build-exe.ps1 -Output "dist\\windows\\ai-balance-gui.exe"
+
+      - name: Create/Update GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          allowUpdates: true
+          generateReleaseNotes: true
+          artifacts: dist/windows/ai-balance-gui.exe
+          artifactContentType: application/octet-stream
