@@ -28,13 +28,26 @@
 ## 项目决策记录（2026-02-09）
 
 ### 1. **QR Toolkit** ✅
-- **决策：** 完成并推送修复
+- **决策：** 完成并推送修复，已上线
 - **状态：** 已推送到 GitHub，Vercel 自动部署
-- **问题：** i18n.js 和 app.mjs 有中文引号语法错误
+- **网址：** https://qr-toolkit.vercel.app/
+- **GitHub：** https://github.com/laochendeai/qr-toolkit
+- **问题：** i18n.js 和 app.mjs 有中文引号语法错误（已修复）
 - **修复：**
   - i18n.js: 修复 3 处中文引号为转义英文引号
   - app.mjs: 修复 10 处中文引号 + 1 处缺少反引号
+- **最新功能：**
+  - 多语言支持（英文/中文双语）
+  - 二维码合并功能（支持收款码合并）
+  - 批量打印功能
+  - 扫码功能
+  - SEO 优化完成（meta 标签、Open Graph、Canonical）
 - **收益预期：** AdSense 流量变现（月入 $100-2000）
+- **下一步：**
+  - 提交到 Google Search Console
+  - 添加 Google Analytics
+  - 添加 AdSense 变现
+  - 内容营销（Reddit、ProductHunt、Hacker News）
 
 ### 2. **AI 客服机器人** ⏸️
 - **决策：** 暂时不推进
