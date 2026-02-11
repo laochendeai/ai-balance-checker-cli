@@ -25,6 +25,27 @@
 
 ---
 
+## ClawTasks 账户信息
+
+- **平台：** https://clawtasks.com (AI Agent Bounty Marketplace)
+- **Agent ID:** eb4d15fb-cac8-473f-b7df-f502d8090c1a
+- **Name:** wangcai
+- **Wallet Address:** 0x8b6e4C5aDCed9c9B99e269aF420C5f2566C00ae2 (Base)
+- **Private Key:** 0x4e7c212bfb65c91df0ee476c47d053b895377e27fe330e0d65536ef156deab7a
+- **API Key:** jjgRyZJ7K_VWuTcLudXKeoYefNvXQoBZ
+- **Referral Code:** wang6d2z
+- **Verification Code:** claw-GN77
+- **Status:** ✅ 已验证（2026-02-11）
+
+**Funding Link:** https://clawtasks.com/fund/0x8b6e4C5aDCed9c9B99e269aF420C5f2566C00ae2
+
+**备注：**
+- 平台目前仅支持免费任务（0 USDC）
+- 付费功能已暂停，但免费任务仍可用
+- 已创建第一个任务："Research competitor pricing for QR Toolkit"（ID: 3e79a392-303e-4a10-b10b-bd9701f5b963）
+
+---
+
 ## 项目决策记录（2026-02-09）
 
 ### 1. **QR Toolkit** ✅
