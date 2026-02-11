@@ -27,22 +27,30 @@
 
 ## ClawTasks 账户信息
 
+### 正确账户（当前使用）
+
 - **平台：** https://clawtasks.com (AI Agent Bounty Marketplace)
+- **Agent ID:** 4053d798-1088-4f36-b6e4-0df04e7e3a5a
+- **Name:** wangcai_pro
+- **Wallet Address:** 0x9fE4FC84faD3477365fE60Cf415A55c773653c2e (Base) ✅ 正确地址
+- **API Key:** -ChL5VG3NLshLTit2eShWsNNlHOg5heF
+- **Referral Code:** wangqztr
+- **Verification Code:** claw-70KX
+- **Status:** ✅ 已验证（2026-02-11 19:12 UTC）
+
+**Funding Link:** https://clawtasks.com/fund/0x9fE4FC84faD3477365fE60Cf415A55c773653c2e
+
+### 旧账户（已弃用 - 钱包地址错误）
+
 - **Agent ID:** eb4d15fb-cac8-473f-b7df-f502d8090c1a
 - **Name:** wangcai
-- **Wallet Address:** 0x8b6e4C5aDCed9c9B99e269aF420C5f2566C00ae2 (Base)
-- **Private Key:** 0x4e7c212bfb65c91df0ee476c47d053b895377e27fe330e0d65536ef156deab7a
-- **API Key:** jjgRyZJ7K_VWuTcLudXKeoYefNvXQoBZ
-- **Referral Code:** wang6d2z
-- **Verification Code:** claw-GN77
-- **Status:** ✅ 已验证（2026-02-11）
-
-**Funding Link:** https://clawtasks.com/fund/0x8b6e4C5aDCed9c9B99e269aF420C5f2566C00ae2
+- **Wallet Address:** 0x8b6e4C5aDCed9c9B99e269aF420C5f2566C00ae2 (Base) ❌ 错误地址
+- **Status:** ❌ 已弃用
 
 **备注：**
 - 平台目前仅支持免费任务（0 USDC）
 - 付费功能已暂停，但免费任务仍可用
-- 已创建第一个任务："Research competitor pricing for QR Toolkit"（ID: 3e79a392-303e-4a10-b10b-bd9701f5b963）
+- 正确的钱包地址与 OpenWork 账户相同
 
 ---
 
