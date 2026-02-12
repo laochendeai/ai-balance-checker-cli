@@ -411,15 +411,33 @@ nohup python main.py
 
 ## 系统状态
 
-### 当前状态（最后更新：2026-02-05）
+### 当前状态（最后更新：2026-02-12）
 
 | 检查项 | 状态 | 详情 |
 |---------|------|------|
-| Gateway | ✅ 正常运行 | PID 1181330，端口 18789，RPC 正常 |
-| 磁盘空间 | ✅ 正常 | 根分区使用 47%（14G/29G 可用）|
-| 内存使用 | ✅ 正常 | 使用 12.5%（953Mi/7.6Gi），可用 6.7Gi |
-| Git 仓库 | ✅ 已初始化 | master 分支，已提交 11 个文件 |
+| Gateway | ✅ 正常运行 | PID 2559475，端口 18789，RPC 正常 |
+| 磁盘空间 | ✅ 正常 | 根分区使用 55%（16G/29G 可用）|
+| 内存使用 | ✅ 正常 | 使用 918Mi/7.6Gi，可用 6.6Gi |
+| Git 仓库 | ✅ 已初始化 | master 分支 |
 | memory 目录 | ✅ 已创建 | `/home/ubuntu/.openclaw/workspace/memory/` 目录存在 |
+
+### Gateway 自动维护（2026-02-12 研究）
+
+#### 重启机制
+1. **内部重启（SIGUSR1）：** `openclaw gateway restart` - 快速但不清理状态
+2. **完全重启（systemctl）：** `systemctl --user restart openclaw-gateway.service` - 彻底清理
+
+#### 自动化配置
+- **定时重启：** 每 8 小时（Cron Job ID: 60d74e5e-4568-4b75-9dbe-14dc71fa83f1）
+- **健康检查脚本：** `/home/ubuntu/.openclaw/workspace/gateway-health-check.sh`
+- **Systemd 配置：** Restart=always（进程退出自动重启）
+
+#### 维护记录
+- 2026-02-12 11:42 UTC - 手动重启（之前运行 > 29 小时）
+- 2026-02-11 06:09 UTC - 系统启动
+
+#### 研究文档
+- 详细分析：`/home/ubuntu/.openclaw/workspace/gateway-research.md`
 
 ### 配置文件
 - **主配置：** `/home/ubuntu/.openclaw/openclaw.json`
