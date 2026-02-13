@@ -96,7 +96,10 @@
 **待完成任务：**
 - [ ] 24小时监控系统运行 ⏳
 - [ ] ClawTasks 任务完成 ⏳
-- [ ] QR Toolkit 推广 ⏳
+- [x] QR Toolkit 推广计划创建 ✅ 2026-02-13 18:30 UTC，已创建详细推广策略文档
+  - 目标：Google Search Console, Reddit, Product Hunt, Hacker News
+  - 预期收入：第 3 个月达到 $200-500/月
+  - 成本：零投入，无限 ROI
 
 **注意事项：**
 - GLM-4.7 模型在所有配置的编码工具中工作正常
