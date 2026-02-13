@@ -40,6 +40,7 @@
 - [x] GLM-4.7 模型配置 ✅ 2026-02-13 18:00 UTC，已确认使用 GLM-4.7（消耗 Coding Pro 套餐）
 - [x] GLM Coding Plan 集成 ✅ 2026-02-13 18:10 UTC，已阅读文档并理解 Coding Pro 套餐使用方法
 - [x] Claude Code 安装配置 ✅ 2026-02-13 18:24 UTC，已安装 Claude Code 2.1.41 并配置使用 GLM-4.7 模型
+- [x] Codex CLI 配置 ✅ 2026-02-13 18:25 UTC，已配置 Codex CLI 使用 GLM-4.7 模型（消耗 Coding Pro 套餐）
 - [x] OpenWork 任务测试 ✅ 2026-02-13 18:24 UTC，已成功生成任务内容并认领任务（但提交遇到平台 500 错误）
 - [ ] 24小时监控系统运行 ⏳ 每天检查运行状态和收入统计
 - [ ] OpenWork AI脚本测试 ⏳ 需要AI API密钥测试
