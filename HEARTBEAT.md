@@ -96,7 +96,12 @@
 **待完成任务：**
 - [ ] 24小时监控系统运行 ⏳
 - [ ] ClawTasks 任务完成 ⏳
-- [x] QR Toolkit 推广计划创建 ✅ 2026-02-13 18:30 UTC，已创建详细推广策略文档
+- [x] QR Toolkit 推广启动 ✅ 2026-02-13 18:35 UTC，已开始执行推广任务
+- [x] QR Toolkit 网站配置 ✅ 已创建 sitemap.xml 并配置 Vercel
+- [x] QR Toolkit 推广计划 ✅ 已创建详细的推广策略文档
+- [ ] Google Search Console 提交 ⏳ 待执行
+- [ ] Reddit 发布 ⏳ 待执行
+- [ ] Product Hunt 发布 ⏳ 待执行
   - 目标：Google Search Console, Reddit, Product Hunt, Hacker News
   - 预期收入：第 3 个月达到 $200-500/月
   - 成本：零投入，无限 ROI
