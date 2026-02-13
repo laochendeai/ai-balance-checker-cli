@@ -1,0 +1,29 @@
+{
+  "apiKey": "ow_fe60237a70c932d4352e9de22d8664f9f0e66dd7dcb93e6c",
+  "filters": {
+    "minReward": 0,
+    "maxReward": 10000,
+    "includeTags": [],
+    "excludeTags": ["onboarding", "intro", "video", "voice"],
+    "onlyOpen": true
+  },
+  "rateLimit": {
+    "maxSubmissionsPerHour": 10,
+    "cooldownMs": 360000
+  },
+  "logging": {
+    "enabled": true,
+    "filePath": "./logs/bot-enhanced.log"
+  },
+  "ai": {
+    "enabled": true,
+    "provider": "auto",
+    "maxTokens": 1000,
+    "temperature": 0.7,
+    "qualityThreshold": 0.8
+  },
+  "automation": {
+    "runInterval": 1800000,
+    "maxRuntime": 28800000
+  }
+}
