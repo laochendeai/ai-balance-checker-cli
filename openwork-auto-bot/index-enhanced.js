@@ -247,7 +247,7 @@ Provide a complete, high-quality response that addresses all aspects of the task
     const response = await axios.post(
       `${this.providers.glm.baseURL}/chat/completions`,
       {
-        model: 'glm-4',
+        model: 'glm-4-flash',
         messages: [
           {
             role: 'system',
