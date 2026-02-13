@@ -5,7 +5,7 @@
     "maxReward": 10000,
     "includeTags": [],
     "excludeTags": ["onboarding", "intro", "video", "voice"],
-    "onlyOpen": true
+    "onlyOpen": false
   },
   "rateLimit": {
     "maxSubmissionsPerHour": 10,

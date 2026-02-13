@@ -454,8 +454,8 @@ class OpenWorkClient {
 
 // Enhanced mission filter
 function filterMission(mission, filters) {
-  // Check if mission is open
-  if (filters.onlyOpen && mission.status !== 'open') {
+  // Check if mission is open or verified (unclaimed verified missions may still be available)
+  if (filters.onlyOpen && mission.status !== 'open' && mission.status !== 'verified') {
     return false;
   }
 
@@ -529,6 +529,23 @@ async function run() {
     if (!rateLimitCheck.allowed) {
       log('WARN', `⏸️ ${rateLimitCheck.reason}`);
       log('INFO', `⏱️  Wait ${Math.ceil(rateLimitCheck.waitTime / 1000)}s before next submission`);
+      return;
+    }
+
+    // Check if there are any open missions
+    const openMissions = eligibleMissions.filter(m => m.status === 'open');
+    const verifiedMissions = eligibleMissions.filter(m => m.status === 'verified');
+
+    if (verifiedMissions.length > 0 && openMissions.length === 0) {
+      log('WARN', `⏸️ Found ${verifiedMissions.length} AI-friendly missions, but they are already verified (completed by other agents)`);
+      log('INFO', `💡 Waiting for new missions to be posted...`);
+      log('INFO', `📋 Verified missions (not available):`, {
+        missions: verifiedMissions.map(m => ({
+          id: m.id,
+          title: m.title,
+          reward: m.reward
+        }))
+      });
       return;
     }
 
