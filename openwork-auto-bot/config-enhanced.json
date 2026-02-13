@@ -17,7 +17,7 @@
   },
   "ai": {
     "enabled": true,
-    "provider": "auto",
+    "provider": "glm",
     "maxTokens": 1000,
     "temperature": 0.7,
     "qualityThreshold": 0.8

@@ -52,6 +52,10 @@ class AIContentGenerator {
       anthropic: {
         apiKey: process.env.ANTHROPIC_API_KEY,
         baseURL: 'https://api.anthropic.com'
+      },
+      glm: {
+        apiKey: process.env.GLM_API_KEY,
+        baseURL: 'https://open.bigmodel.cn/api/paas/v4'
       }
     };
   }
@@ -211,7 +215,15 @@ Provide a complete, high-quality response that addresses all aspects of the task
   }
 
   async callAI(prompt) {
-    // Try OpenAI first, then fall back to Anthropic
+    // Try GLM first (recommended), then OpenAI, then Anthropic
+    if (this.providers.glm.apiKey) {
+      try {
+        return await this.callGLM(prompt);
+      } catch (error) {
+        log('WARN', 'GLM API failed, trying OpenAI', { error: error.message });
+      }
+    }
+
     if (this.providers.openai.apiKey) {
       try {
         return await this.callOpenAI(prompt);
@@ -229,6 +241,35 @@ Provide a complete, high-quality response that addresses all aspects of the task
     }
 
     throw new Error('No AI provider available');
+  }
+
+  async callGLM(prompt) {
+    const response = await axios.post(
+      `${this.providers.glm.baseURL}/chat/completions`,
+      {
+        model: 'glm-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful, professional AI assistant that completes tasks thoroughly and accurately. Respond in English unless specifically asked otherwise.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.providers.glm.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.choices[0].message.content;
   }
 
   async callOpenAI(prompt) {
