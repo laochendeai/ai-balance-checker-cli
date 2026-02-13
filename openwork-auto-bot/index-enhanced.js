@@ -55,7 +55,7 @@ class AIContentGenerator {
       },
       glm: {
         apiKey: process.env.GLM_API_KEY,
-        baseURL: 'https://open.bigmodel.cn/api/paas/v4'
+        baseURL: 'https://open.bigmodel.cn/api/coding/paas/v4'
       }
     };
   }
