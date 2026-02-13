@@ -25,20 +25,32 @@
    - 文件：`openwork-auto-bot/index-enhanced.js`
    - 配置：`openwork-auto-bot/config-enhanced.json`
 
-3. **24小时监控系统** ✅
+3. **GLM API集成** ✅
+   - 支持智谱AI GLM-5模型
+   - 成本最低：¥0.1/1K tokens
+   - 优先级最高：GLM > OpenAI > Anthropic
+   - 文件：`openwork-auto-bot/GLM_API_SETUP.md`
+
+4. **24小时监控系统** ✅
    - 自动化监控脚本
    - Gateway状态检查
    - 收入统计和报告
    - Telegram通知支持
    - 文件：`24h-monitor.js`
+   - **状态：正在运行（PID 2612124）**
+
+5. **Gateway重启** ✅
+   - 时间：15:56-16:01 UTC
+   - 之前运行：19小时
+   - 新进程：PID 2578393
 
 ### 🔄 进行中
 
-4. **测试OpenWork增强脚本** 🔄
-   - 状态：准备测试
-   - 预期：完成AI任务提交
+6. **测试OpenWork增强脚本** 🔄
+   - 状态：已测试，等待新任务
+   - 结果：GLM API正常，任务竞争激烈
 
-5. **ClawTasks任务** 🔄
+7. **ClawTasks任务** 🔄
    - 状态：待选择任务
    - 优先任务：文档编写类
 
