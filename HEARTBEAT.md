@@ -21,6 +21,7 @@
 - [x] 创建 MEMORY.md 核心记忆文件 ✅
 - [x] 更新 memory/2026-02-05.md 日常记录 ✅
 - [x] 提交所有文件到 Git ✅
+- [x] Google Search Console 验证指南创建 ✅ 2026-02-13 20:15 UTC，已创建详细的 Google Search Console 验证流程文档，包含 DNS TXT 记录验证、Sitemap 提交、索引监控等
 
 #### 5. 触发提醒（主动联系）
 - [x] Gateway 异常 ✅
